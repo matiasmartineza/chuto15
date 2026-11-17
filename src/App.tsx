@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Flame, Wine, UserPlus, Play, RotateCcw, Trophy, X, Check, Crown, Shuffle, AlertTriangle, ShieldX } from 'lucide-react';
+import { Flame, Wine, UserPlus, Play, RotateCcw, Trophy, X, Check, Crown, Shuffle, AlertTriangle, ShieldX, Heart, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig, animate, useMotionValue, useTransform } from 'framer-motion';
 
 const WIN_SCORE = 400;
@@ -231,15 +231,14 @@ const pickPartnerIndex = (playerCount, excludeIdx) => {
   return idx;
 };
 
-// ---------- Identidad visual ----------
-const PLAYER_COLORS = ['#ff2e93', '#22e6ff', '#ffb020', '#9dff3a', '#a855ff', '#ff5a36', '#2effc0', '#ff6bd6'];
+// ---------- Estética original (negro + rojo/morado) con animaciones ----------
+const PLAYER_COLORS = ['#ef4444', '#a855f7', '#ec4899', '#f59e0b', '#22c55e', '#38bdf8'];
 
 const LEVELS = {
-  soft: { label: 'Para calentar', color: '#ff5ea8', flames: 1 },
-  medium: { label: 'Nivel medio', color: '#b45cff', flames: 2 },
-  hard: { label: 'Prueba extrema', color: '#ff2d3d', flames: 3 },
+  soft: { label: 'Para Calentar', Icon: Sparkles, chip: 'bg-pink-500/20 text-pink-500', flames: 1 },
+  medium: { label: 'Nivel Medio', Icon: Heart, chip: 'bg-purple-500/20 text-purple-500', flames: 2 },
+  hard: { label: 'Prueba Extrema', Icon: Flame, chip: 'bg-red-500/20 text-red-500', flames: 3 },
 };
-const NEGOTIATED_COLOR = '#ffc61a';
 
 const spring = { type: 'spring', stiffness: 380, damping: 26 };
 
@@ -255,55 +254,53 @@ const AnimatedNumber = ({ value }) => {
 
 const Background = () => (
   <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-    <div className="orb w-96 h-96 -top-24 -left-24" style={{ background: 'rgba(255,45,90,.35)' }} />
-    <div className="orb w-[26rem] h-[26rem] top-1/3 -right-40" style={{ background: 'rgba(130,60,255,.32)', animationDelay: '-5s' }} />
-    <div className="grid-floor" />
-    {Array.from({ length: 22 }).map((_, i) => (
-      <span
+    <motion.div
+      className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-red-900/30 rounded-full blur-[100px]"
+      animate={{ x: [0, 60, 0], y: [0, 40, 0], scale: [1, 1.15, 1] }}
+      transition={{ repeat: Infinity, duration: 12, ease: 'easeInOut' }}
+    />
+    <motion.div
+      className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-900/20 rounded-full blur-[100px]"
+      animate={{ x: [0, -60, 0], y: [0, -50, 0], scale: [1, 1.2, 1] }}
+      transition={{ repeat: Infinity, duration: 14, ease: 'easeInOut' }}
+    />
+    {/* brasas que suben */}
+    {Array.from({ length: 16 }).map((_, i) => (
+      <motion.span
         key={i}
-        className="spark"
-        style={{
-          left: `${(i * 37) % 100}%`,
-          animationDuration: `${9 + (i % 6) * 3}s`,
-          animationDelay: `${-i * 1.7}s`,
-          background: i % 3 === 0 ? '#ff2e93' : i % 3 === 1 ? '#a855ff' : '#22e6ff',
-          boxShadow: '0 0 8px currentColor',
-        }}
+        className="absolute bottom-0 w-1 h-1 rounded-full"
+        style={{ left: `${(i * 37) % 100}%`, background: i % 2 ? '#dc2626' : '#9333ea' }}
+        animate={{ y: [0, -900], opacity: [0, 0.7, 0] }}
+        transition={{ duration: 10 + (i % 5) * 3, repeat: Infinity, delay: -i * 1.6, ease: 'linear' }}
       />
     ))}
   </div>
 );
 
-// Logo estilo letrero de neón
-const Logo = ({ big = false }) => (
+const Logo = () => (
   <motion.h1
-    initial={{ y: -40, opacity: 0 }}
-    animate={{ y: 0, opacity: 1 }}
+    initial={{ y: -50, opacity: 0, skewX: -6 }}
+    animate={{ y: 0, opacity: 1, skewX: -6 }}
     transition={spring}
-    className={`font-neon select-none flex items-center justify-center gap-2 ${big ? 'text-6xl' : 'text-4xl'}`}
+    className="text-5xl font-black tracking-tighter italic select-none"
     aria-label="Chuto 15"
   >
-    <span className="neon-text" style={{ '--glow': '#ff2d5a' }}>
-      CHU<span className="flicker-fast inline-block">T</span>O
-    </span>
     <motion.span
-      animate={{ rotate: [-4, 4, -4] }}
-      transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-      className="neon-box neon-text rounded-xl px-2 leading-tight flicker"
-      style={{ '--glow': '#a855ff' }}
+      className="inline-block text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-purple-600 drop-shadow-[0_0_10px_rgba(220,38,38,0.5)]"
+      animate={{ scale: [1, 1.04, 1] }}
+      transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
     >
-      15
+      CHUTO<span className="text-white">15</span>
     </motion.span>
   </motion.h1>
 );
 
-const NeonBtn = ({ color, fill = false, sweep = false, className = '', children, ...rest }) => (
+const Btn = ({ className = '', children, ...rest }) => (
   <motion.button
     whileHover={rest.disabled ? undefined : { scale: 1.03 }}
     whileTap={rest.disabled ? undefined : { scale: 0.94 }}
     transition={spring}
-    style={{ '--c': color }}
-    className={`btn-n ${fill ? 'btn-fill' : ''} ${sweep ? 'btn-sweep' : ''} rounded-2xl flex flex-col items-center justify-center text-center ${className}`}
+    className={className}
     {...rest}
   >
     {children}
@@ -311,9 +308,9 @@ const NeonBtn = ({ color, fill = false, sweep = false, className = '', children,
 );
 
 const screenVariants = {
-  initial: { opacity: 0, y: 30, scale: 0.96 },
+  initial: { opacity: 0, y: 30, scale: 0.97 },
   animate: { opacity: 1, y: 0, scale: 1, transition: { ...spring, staggerChildren: 0.08 } },
-  exit: { opacity: 0, y: -30, scale: 0.96, transition: { duration: 0.2 } },
+  exit: { opacity: 0, y: -30, scale: 0.97, transition: { duration: 0.2 } },
 };
 const itemVariants = {
   initial: { opacity: 0, y: 26 },
@@ -427,7 +424,7 @@ const App = () => {
     } else if (!newChallenge.text.includes('{partner}')) {
       setPartnerPlayerIndex(null);
     }
-    addPop('DOBLE RIESGO', NEGOTIATED_COLOR);
+    addPop('DOBLE RIESGO', '#facc15');
   };
 
   // Stakes actuales (negociados o normales)
@@ -461,8 +458,8 @@ const App = () => {
       return p;
     });
     addPop('SE OPONE', '#ff9f1c');
-    addPop(`${me.name} +${mine}`, '#9dff3a', 250);
-    addPop(`${partner.name} bebe ${theirs}`, '#ff2e93', 500);
+    addPop(`${me.name} +${mine}`, '#4ade80', 250);
+    addPop(`${partner.name} bebe ${theirs}`, '#f87171', 500);
     finishTurn(newPlayers);
   };
 
@@ -479,12 +476,12 @@ const App = () => {
       return p;
     });
     if (success) {
-      addPop(`+${points}`, '#9dff3a');
+      addPop(`+${points}`, '#4ade80');
       if (partnerPlayerIndex !== null) {
-        addPop(`${players[partnerPlayerIndex].name} +${Math.floor(points / 2)}`, '#22e6ff', 250);
+        addPop(`${players[partnerPlayerIndex].name} +${Math.floor(points / 2)}`, '#38bdf8', 250);
       }
     } else {
-      addPop(`${me.name} bebe ${sips}`, '#ff2e93');
+      addPop(`${me.name} bebe ${sips}`, '#f87171');
     }
     finishTurn(newPlayers);
   };
@@ -513,7 +510,6 @@ const App = () => {
     : { win: 0, loseSips: 0 };
   const drinkType = isDrinkChallenge(currentChallenge);
   const level = currentChallenge ? LEVELS[currentChallenge.intensity] : LEVELS.soft;
-  const glow = isNegotiated ? NEGOTIATED_COLOR : level.color;
   const me = players[currentPlayerIndex];
   const partner = partnerPlayerIndex !== null ? players[partnerPlayerIndex] : null;
   const sorted = [...players].sort((a, b) => b.score - a.score);
@@ -533,11 +529,10 @@ const App = () => {
   // --- RENDERIZADO ---
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen text-white overflow-x-hidden relative scanlines" style={{ background: 'var(--bg)' }}>
+      <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-red-500 selection:text-white overflow-x-hidden relative">
         <Background />
-        <div className="vignette" />
 
-        {/* Banner de turno: barrido a pantalla completa */}
+        {/* Banner de turno: barrido */}
         <AnimatePresence>
           {turnBanner && (
             <motion.div
@@ -546,8 +541,7 @@ const App = () => {
               initial="in" animate="in" exit="out"
             >
               <motion.div
-                className="absolute inset-x-0 h-28"
-                style={{ background: `linear-gradient(90deg, transparent, ${turnBanner.color}55, transparent)`, backdropFilter: 'blur(3px)' }}
+                className="absolute inset-x-0 h-28 bg-gradient-to-r from-transparent via-red-900/60 to-transparent backdrop-blur-sm"
                 variants={{ in: { scaleY: 1, opacity: 1 }, out: { scaleY: 0, opacity: 0 } }}
                 initial={{ scaleY: 0, opacity: 0 }}
                 transition={{ duration: 0.25 }}
@@ -558,8 +552,8 @@ const App = () => {
                 animate={{ x: 0, skewX: -8, transition: { type: 'spring', stiffness: 220, damping: 20 } }}
                 exit={{ x: '110vw', skewX: -18, transition: { duration: 0.28, ease: 'easeIn' } }}
               >
-                <div className="text-xs tracking-[0.5em] text-white/70 font-bold">TURNO DE</div>
-                <div className="font-neon text-6xl neon-text break-all" style={{ '--glow': turnBanner.color }}>
+                <div className="text-xs tracking-[0.5em] text-neutral-300 font-bold">TURNO DE</div>
+                <div className="text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-purple-500 break-all px-4">
                   {turnBanner.name}
                 </div>
               </motion.div>
@@ -577,8 +571,8 @@ const App = () => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -60, scale: 1.1 }}
                 transition={spring}
-                className="font-neon text-3xl px-5 py-1 rounded-full bg-black/70 neon-box neon-soft"
-                style={{ '--glow': p.color, color: p.color }}
+                className="font-black text-2xl px-5 py-1 rounded-full bg-neutral-900/90 border border-neutral-700 shadow-2xl"
+                style={{ color: p.color }}
               >
                 {p.text}
               </motion.div>
@@ -587,8 +581,8 @@ const App = () => {
         </div>
 
         <div className="relative z-10 max-w-md mx-auto min-h-screen flex flex-col p-4">
-          <header className="py-3 mb-1">
-            <Logo big={gameState === 'consent' || gameState === 'setup'} />
+          <header className="flex justify-center items-center py-4 mb-2">
+            <Logo />
           </header>
 
           <AnimatePresence mode="wait">
@@ -596,40 +590,41 @@ const App = () => {
             {/* AVISO +18 */}
             {gameState === 'consent' && (
               <motion.div key="consent" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col justify-center gap-6">
-                <motion.div variants={itemVariants} className="neon-box rounded-3xl p-6 bg-black/50 backdrop-blur-md text-center" style={{ '--glow': '#ff2d5a' }}>
-                  <div className="font-neon text-6xl neon-text flicker" style={{ '--glow': '#ff2d5a' }}>+18</div>
-                  <h2 className="font-neon text-2xl text-pink-300 mt-1 mb-4">Solo adultos</h2>
-                  <ul className="text-white/85 text-left space-y-2">
+                <motion.div variants={itemVariants} className="bg-neutral-900/60 backdrop-blur-md border border-neutral-800 p-6 rounded-2xl shadow-2xl text-center">
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.8 }}
+                    className="text-6xl font-black text-red-500 drop-shadow-[0_0_12px_rgba(220,38,38,0.6)]"
+                  >+18</motion.div>
+                  <h2 className="text-xl font-bold mt-1 mb-4 text-red-400">Contenido para adultos</h2>
+                  <ul className="text-neutral-300 text-sm space-y-2 text-left">
                     {[
-                      'Retos sexuales y de beber alcohol.',
+                      'Este juego contiene retos sexuales y de consumo de alcohol.',
                       'Solo para mayores de 18 años.',
-                      'Todos tienen que estar de acuerdo en jugar.',
-                      'Cualquiera puede negarse a un reto, sin presión.',
-                      'Toma con moderación y no conduzcas.',
+                      'Todos los jugadores deben estar de acuerdo en participar.',
+                      'Cualquiera puede negarse a un reto en cualquier momento. Nadie debe sentirse presionado.',
+                      'Bebe con moderación y no conduzcas.',
                     ].map((t, i) => (
                       <motion.li key={i} initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.3 + i * 0.1 }} className="flex gap-2">
-                        <span className="text-pink-400">▸</span> {t}
+                        <span className="text-red-500">•</span> {t}
                       </motion.li>
                     ))}
                   </ul>
                 </motion.div>
                 <motion.div variants={itemVariants}>
-                  <NeonBtn color="#ff2d5a" fill sweep onClick={() => setGameState('setup')} className="w-full py-5 text-lg">
+                  <Btn onClick={() => setGameState('setup')} className="w-full bg-gradient-to-r from-red-600 to-purple-700 hover:from-red-500 hover:to-purple-600 text-white font-bold py-4 rounded-2xl text-lg shadow-[0_0_20px_rgba(220,38,38,0.4)]">
                     Soy mayor de 18 y todos aceptamos jugar
-                  </NeonBtn>
+                  </Btn>
                 </motion.div>
               </motion.div>
             )}
 
             {/* SETUP */}
             {gameState === 'setup' && (
-              <motion.div key="setup" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col gap-5">
-                <motion.div variants={itemVariants} className="text-center font-neon tracking-[0.35em] text-sm text-white/60">
-                  RETA · SEDUCE · BEBE
-                </motion.div>
-                <motion.div variants={itemVariants} className="neon-box rounded-3xl p-5 bg-black/50 backdrop-blur-md" style={{ '--glow': '#a855ff' }}>
-                  <h2 className="font-neon text-2xl neon-soft text-center mb-4" style={{ '--glow': '#a855ff', color: '#d9b8ff' }}>
-                    ¿Quiénes juegan?
+              <motion.div key="setup" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col gap-6">
+                <motion.div variants={itemVariants} className="bg-neutral-900/60 backdrop-blur-md border border-neutral-800 p-6 rounded-2xl shadow-2xl">
+                  <h2 className="text-xl font-bold mb-4 text-center text-red-400 flex items-center justify-center gap-2">
+                    <Flame size={20} /> Registro de Jugadores
                   </h2>
                   <div className="flex gap-2 mb-2">
                     <input
@@ -637,47 +632,46 @@ const App = () => {
                       value={newPlayerName}
                       onChange={(e) => { setNewPlayerName(e.target.value); setNameError(''); }}
                       onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-                      placeholder="Nombre…"
+                      placeholder="Nombre..."
                       maxLength={16}
-                      className="flex-1 min-w-0 bg-black/60 border-2 border-white/15 rounded-2xl px-4 py-3 text-lg placeholder:text-white/30 focus:outline-none focus:border-[#a855ff] focus:shadow-[0_0_18px_rgba(168,85,255,.6)] transition-all"
+                      className="flex-1 min-w-0 bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors text-lg"
                     />
-                    <NeonBtn color="#22e6ff" onClick={addPlayer} aria-label="Añadir jugador" className="w-14">
+                    <Btn onClick={addPlayer} aria-label="Añadir jugador" className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-xl">
                       <UserPlus size={24} />
-                    </NeonBtn>
+                    </Btn>
                   </div>
-                  {nameError && <p className="text-pink-300 text-sm">{nameError}</p>}
+                  {nameError && <p className="text-red-400 text-sm mb-2">{nameError}</p>}
 
-                  <div className="flex flex-wrap gap-2 mt-4 min-h-[48px]">
-                    <AnimatePresence>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar mt-4">
+                    <AnimatePresence initial={false}>
                       {players.map((p, i) => (
                         <motion.div
                           key={p.name}
                           layout
-                          initial={{ scale: 0, rotate: -15, opacity: 0 }}
-                          animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
+                          initial={{ x: -60, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          exit={{ x: 60, opacity: 0 }}
                           transition={spring}
-                          className="neon-box flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-black/60"
-                          style={{ '--glow': p.color }}
+                          className="flex justify-between items-center bg-neutral-800/50 p-3 rounded-lg border border-neutral-700/50"
                         >
-                          <span className="font-bold neon-soft" style={{ color: p.color, '--glow': p.color }}>{p.name}</span>
-                          <button onClick={() => removePlayer(i)} aria-label={`Quitar a ${p.name}`} className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center">
-                            <X size={14} />
+                          <span className="font-medium text-lg">{p.name}</span>
+                          <button onClick={() => removePlayer(i)} aria-label={`Quitar a ${p.name}`} className="text-neutral-500 hover:text-red-500">
+                            <X size={20} />
                           </button>
                         </motion.div>
                       ))}
                     </AnimatePresence>
-                    {players.length === 0 && <p className="text-white/40 italic m-auto">Añade jugadores para empezar…</p>}
+                    {players.length === 0 && <p className="text-center text-neutral-600 italic">Añade jugadores para empezar...</p>}
                   </div>
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
                   {players.length >= 2 ? (
-                    <NeonBtn color="#ff2d5a" fill sweep onClick={startGame} className="w-full py-5 text-2xl font-neon">
-                      <span className="flex items-center gap-3"><Play fill="currentColor" /> COMENZAR</span>
-                    </NeonBtn>
+                    <Btn onClick={startGame} className="w-full bg-gradient-to-r from-red-600 to-purple-700 hover:from-red-500 hover:to-purple-600 text-white font-bold py-4 rounded-2xl text-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] flex items-center justify-center gap-3">
+                      <Play fill="currentColor" /> COMENZAR JUEGO
+                    </Btn>
                   ) : (
-                    <div className="text-center text-white/45 text-sm p-2">Necesitas al menos 2 jugadores para la tensión</div>
+                    <div className="text-center text-neutral-500 text-sm p-2">Necesitas al menos 2 jugadores para la tensión</div>
                   )}
                 </motion.div>
               </motion.div>
@@ -687,39 +681,22 @@ const App = () => {
             {gameState === 'playing' && currentChallenge && me && (
               <motion.div key="playing" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col gap-3">
 
-                {/* Ranking en carrera hacia 400 */}
-                <motion.div variants={itemVariants} className="rounded-2xl bg-black/50 backdrop-blur-sm border border-white/10 p-2">
-                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-[0.2em] text-white/45 px-1 mb-1">
-                    <span>Carrera a {WIN_SCORE}</span><span>Sorbos</span>
+                {/* Barra superior: turno */}
+                <motion.div variants={itemVariants} className="flex justify-between items-center bg-neutral-900/80 rounded-full px-4 py-2 border border-neutral-800">
+                  <div className="flex flex-col">
+                    <span className="text-sm text-neutral-400">Turno de:</span>
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={me.name}
+                        initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-xl font-bold text-red-400 leading-none"
+                      >{me.name}</motion.span>
+                    </AnimatePresence>
                   </div>
-                  <div className="space-y-1 max-h-28 overflow-y-auto">
-                    {sorted.map((p, rank) => {
-                      const active = p.name === me.name;
-                      return (
-                        <motion.div key={p.name} layout transition={spring} className="flex items-center gap-2">
-                          <div
-                            className="relative flex-1 h-7 rounded-full bg-white/[0.07] overflow-hidden"
-                            style={active ? { boxShadow: `0 0 0 2px ${p.color}, 0 0 16px ${p.color}` } : undefined}
-                          >
-                            <motion.div
-                              className="absolute inset-y-0 left-0 rounded-full"
-                              initial={false}
-                              animate={{ width: `${Math.max(3, Math.min(100, (p.score / WIN_SCORE) * 100))}%` }}
-                              transition={{ type: 'spring', stiffness: 90, damping: 16 }}
-                              style={{ background: `linear-gradient(90deg, ${p.color}22, ${p.color}cc)` }}
-                            />
-                            <div className="absolute inset-0 flex items-center justify-between px-3 text-sm font-bold">
-                              <span className="truncate flex items-center gap-1.5">
-                                {rank === 0 && p.score > 0 && <Crown size={13} className="text-yellow-300" />}
-                                {p.name}
-                              </span>
-                              <span className="tabular-nums"><AnimatedNumber value={p.score} /></span>
-                            </div>
-                          </div>
-                          <span className="w-8 text-right text-sm font-bold text-pink-300 tabular-nums"><AnimatedNumber value={p.sips} /></span>
-                        </motion.div>
-                      );
-                    })}
+                  <div className="text-right">
+                    <span className="text-xs bg-neutral-800 px-2 py-1 rounded text-neutral-300 block">Puntuación</span>
+                    <span className="text-lg font-bold text-white"><AnimatedNumber value={me.score} /> pts</span>
                   </div>
                 </motion.div>
 
@@ -728,51 +705,46 @@ const App = () => {
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={cardKey}
+                      className="relative"
                       initial={{ y: 140, rotate: -7, opacity: 0, scale: 0.85 }}
                       animate={{ y: 0, rotate: 0, opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 260, damping: 20 } }}
                       exit={{ x: -320, rotate: -14, opacity: 0, transition: { duration: 0.22, ease: 'easeIn' } }}
                     >
                       <motion.div
+                        className={`absolute inset-0 bg-gradient-to-br ${isNegotiated ? 'from-yellow-600 to-orange-600' : 'from-red-600 to-purple-600'} rounded-3xl blur`}
+                        animate={{ opacity: [0.2, 0.45, 0.2] }}
+                        transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
+                      />
+                      <motion.div
                         animate={isNegotiated ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }}
                         transition={{ duration: 0.5 }}
-                        className="tube rounded-[1.7rem] p-[3px]"
-                        style={{ '--glow': glow }}
+                        className="relative bg-neutral-900/80 backdrop-blur-xl border border-red-500/30 p-5 rounded-3xl shadow-2xl text-center min-h-[220px] flex flex-col justify-center items-center gap-3"
                       >
-                        <div
-                          className={`relative overflow-hidden rounded-[1.55rem] px-5 py-4 min-h-[210px] flex flex-col items-center justify-center text-center gap-3 ${isNegotiated ? 'hazard' : ''}`}
-                          style={{ background: `radial-gradient(ellipse at top, ${glow}2e, #0b0912 70%)` }}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-1" style={{ color: glow }}>
-                              {[1, 2, 3].map((n) => (
-                                <motion.span
-                                  key={n}
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  transition={{ ...spring, delay: 0.35 + n * 0.08 }}
-                                  style={{ opacity: n <= level.flames ? 1 : 0.2, filter: n <= level.flames ? `drop-shadow(0 0 6px ${glow})` : 'none' }}
-                                >
-                                  <Flame size={18} fill={n <= level.flames ? 'currentColor' : 'none'} />
-                                </motion.span>
-                              ))}
-                              <span className="ml-1 text-[11px] uppercase tracking-[0.2em] font-bold">
-                                {drinkType ? 'Bebe o no' : level.label}
-                              </span>
-                            </div>
-                            {isNegotiated && (
-                              <motion.span
-                                initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={spring}
-                                className="flex items-center gap-1 bg-yellow-300 text-black rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
-                              >
-                                <AlertTriangle size={12} /> RIESGO ×2
-                              </motion.span>
-                            )}
-                          </div>
+                        <div className="flex items-center justify-between w-full">
+                          <motion.div
+                            initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...spring, delay: 0.25 }}
+                            className={`p-2 rounded-full ${level.chip}`}
+                          >
+                            <level.Icon size={20} fill={currentChallenge.intensity === 'soft' ? 'none' : 'currentColor'} />
+                          </motion.div>
+                          {isNegotiated && (
+                            <motion.div
+                              initial={{ scale: 0 }} animate={{ scale: 1 }} transition={spring}
+                              className="flex items-center gap-1 bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/50 animate-pulse"
+                            >
+                              <AlertTriangle size={12} /> RIESGO ACTIVO
+                            </motion.div>
+                          )}
+                        </div>
 
+                        <div className="w-full">
+                          <span className="uppercase tracking-widest text-xs font-bold text-neutral-500 mb-2 block">
+                            {isNegotiated ? '⚠️ REGLAS NEGOCIADAS ⚠️' : drinkType ? 'Bebe o no' : level.label}
+                          </span>
                           <motion.h3
                             initial="hidden" animate="show"
                             variants={{ show: { transition: { staggerChildren: 0.04, delayChildren: 0.3 } } }}
-                            className="text-[1.45rem] leading-snug font-extrabold break-words"
+                            className="text-xl md:text-2xl font-bold leading-snug break-words"
                           >
                             {challengeTokens().map((tok, i) => (
                               <motion.span
@@ -781,32 +753,28 @@ const App = () => {
                                 className="inline-block mr-[0.3em]"
                               >
                                 {tok.partner && partner ? (
-                                  <span className="px-2 rounded-lg text-black" style={{ background: partner.color, boxShadow: `0 0 16px ${partner.color}` }}>
-                                    {partner.name}
-                                  </span>
+                                  <span className="px-2 rounded-lg bg-red-500/25 text-red-300 border border-red-500/40">{partner.name}</span>
                                 ) : tok.t}
                               </motion.span>
                             ))}
                           </motion.h3>
+                        </div>
 
-                          <div className="flex gap-3 w-full">
-                            <motion.div initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.5 }} className="flex-1 rounded-xl py-1.5 bg-black/50 border border-lime-300/40">
-                              <div className="text-[9px] tracking-[0.2em] uppercase text-lime-200/70 font-bold">Premio</div>
-                              <div className="font-neon text-xl text-lime-300 neon-soft" style={{ '--glow': '#9dff3a' }}>+{stakes.win}</div>
-                              {partner && <div className="text-[10px] text-lime-100/70">{partner.name} +{Math.floor(stakes.win / 2)}</div>}
-                            </motion.div>
-                            <motion.div initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.55 }} className="flex-1 rounded-xl py-1.5 bg-black/50 border border-pink-400/40">
-                              <div className="text-[9px] tracking-[0.2em] uppercase text-pink-200/70 font-bold">Castigo</div>
-                              <div className="flex justify-center items-center gap-0.5 h-7 text-pink-300">
-                                {Array.from({ length: stakes.loseSips }).map((_, i) => (
-                                  <motion.span key={i} initial={{ scale: 0, y: -10 }} animate={{ scale: 1, y: 0 }} transition={{ ...spring, delay: 0.6 + i * 0.07 }}>
-                                    <Wine size={stakes.loseSips > 6 ? 13 : 17} style={{ filter: 'drop-shadow(0 0 5px #ff2e93)' }} />
-                                  </motion.span>
-                                ))}
-                              </div>
-                              {partner && <div className="text-[10px] text-pink-100/70">si se opone: {Math.ceil(stakes.loseSips / 2)}</div>}
-                            </motion.div>
-                          </div>
+                        <div className="flex gap-4 w-full justify-center">
+                          <motion.div initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.5 }} className="flex-1 bg-neutral-950/50 py-2 rounded-lg border border-neutral-800 flex flex-col items-center">
+                            <span className="text-[10px] uppercase text-neutral-500 font-bold">Premio</span>
+                            <span className="text-green-400 font-bold text-lg">+{stakes.win} pts</span>
+                            {isNegotiated && <span className="text-[9px] text-yellow-500 leading-none">(Fijo x1.5)</span>}
+                            {partner && <span className="text-[9px] text-green-600 mt-0.5">Partner: +{Math.floor(stakes.win / 2)}</span>}
+                          </motion.div>
+                          <motion.div initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.55 }} className="flex-1 bg-neutral-950/50 py-2 rounded-lg border border-neutral-800 flex flex-col items-center">
+                            <span className="text-[10px] uppercase text-neutral-500 font-bold">Castigo</span>
+                            <span className="text-red-500 font-bold text-lg flex items-center gap-1">
+                              <Wine size={14} /> {stakes.loseSips}
+                            </span>
+                            {isNegotiated && <span className="text-[9px] text-yellow-500 leading-none">(Fijo x2)</span>}
+                            {partner && <span className="text-[9px] text-red-700 mt-0.5">Refusal: {Math.ceil(stakes.loseSips / 2)}</span>}
+                          </motion.div>
                         </div>
                       </motion.div>
                     </motion.div>
@@ -814,32 +782,64 @@ const App = () => {
                 </motion.div>
 
                 {/* Acciones */}
-                <motion.div variants={itemVariants} className="flex flex-col gap-2.5">
-                  <NeonBtn color="#9dff3a" fill sweep onClick={() => handleResult(true)} className="w-full py-3">
-                    <span className="flex items-center gap-2 font-neon text-2xl">
-                      <Check strokeWidth={4} /> {drinkType ? 'BEBÍ / NO APLICA' : '¡HECHO!'}
-                    </span>
-                    <span className="text-xs opacity-75">Ganas {stakes.win} pts</span>
-                  </NeonBtn>
+                <motion.div variants={itemVariants} className="flex flex-col gap-2">
+                  <Btn onClick={() => handleResult(true)} className="w-full bg-white text-black hover:bg-gray-100 py-3 rounded-xl font-bold flex flex-col items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                    <span className="flex items-center gap-2 text-lg"><Check className="text-green-600" strokeWidth={3} size={22} /> {drinkType ? 'Bebí / No aplica' : '¡Hecho!'}</span>
+                    <span className="text-[10px] opacity-60">Ganar {stakes.win} pts</span>
+                  </Btn>
 
-                  <div className={`grid gap-2.5 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                    <NeonBtn color="#ff2e93" onClick={() => handleResult(false)} className="h-[4.5rem] px-1">
-                      <Wine size={22} />
+                  <div className={`grid gap-2 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    <Btn onClick={() => handleResult(false)} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 p-2 rounded-xl font-bold flex flex-col items-center justify-center gap-0.5 border border-neutral-700 h-[4.5rem]">
+                      <Wine className="text-red-500" size={22} />
                       <span className="text-sm">{drinkType ? 'Me niego' : 'Castigo'}</span>
-                      <span className="text-[10px] opacity-70 leading-tight">Bebes {stakes.loseSips}</span>
-                    </NeonBtn>
+                      <span className="text-[10px] opacity-60 leading-tight">Beber {stakes.loseSips} sorbos</span>
+                    </Btn>
                     {partner && (
-                      <NeonBtn color="#ff9f1c" onClick={handlePartnerRefusal} className="h-[4.5rem] px-1">
-                        <ShieldX size={22} />
-                        <span className="text-sm">Se opone</span>
-                        <span className="text-[10px] opacity-70 leading-tight">{partner.name} bebe {Math.ceil(stakes.loseSips / 2)}</span>
-                      </NeonBtn>
+                      <Btn onClick={handlePartnerRefusal} className="bg-orange-900/40 hover:bg-orange-900/60 border border-orange-700/50 text-orange-200 p-2 rounded-xl font-bold flex flex-col items-center justify-center gap-0.5 h-[4.5rem]">
+                        <ShieldX className="text-orange-500" size={22} />
+                        <span className="text-sm">Se Opone</span>
+                        <span className="text-[10px] opacity-60 leading-tight">{partner.name} toma {Math.ceil(stakes.loseSips / 2)}</span>
+                      </Btn>
                     )}
-                    <NeonBtn color="#a855ff" onClick={handleNegotiate} disabled={isNegotiated} className="h-[4.5rem] px-1">
-                      <Shuffle size={22} />
+                    <Btn
+                      onClick={handleNegotiate}
+                      disabled={isNegotiated}
+                      className={`p-2 rounded-xl font-bold flex flex-col items-center justify-center gap-0.5 border h-[4.5rem] ${isNegotiated ? 'bg-neutral-900 border-neutral-800 text-neutral-600 cursor-not-allowed' : 'bg-indigo-900/40 hover:bg-indigo-900/60 border-indigo-500/30 text-indigo-200'}`}
+                    >
+                      <Shuffle size={22} className={isNegotiated ? 'text-neutral-600' : 'text-indigo-400'} />
                       <span className="text-sm">Negociar</span>
-                      <span className="text-[10px] opacity-70 leading-tight">{isNegotiated ? 'Ya usado' : 'Más riesgo, más puntos'}</span>
-                    </NeonBtn>
+                      <span className="text-[10px] opacity-60 leading-tight">{isNegotiated ? 'Usado' : 'Más riesgo / Más puntos'}</span>
+                    </Btn>
+                  </div>
+                </motion.div>
+
+                {/* Ranking */}
+                <motion.div variants={itemVariants} className="bg-black/40 rounded-xl p-3 border border-neutral-800/50">
+                  <p className="text-xs text-neutral-500 uppercase font-bold mb-2 flex justify-between"><span>Ranking Actual</span><span>Sorbos</span></p>
+                  <div className="space-y-1 max-h-24 overflow-y-auto custom-scrollbar">
+                    {sorted.map((p, rank) => {
+                      const active = p.name === me.name;
+                      return (
+                        <motion.div key={p.name} layout transition={spring} className="flex items-center gap-2">
+                          <div className={`relative flex-1 h-6 rounded-full bg-neutral-800 overflow-hidden ${active ? 'ring-1 ring-red-500' : ''}`}>
+                            <motion.div
+                              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-red-700 to-purple-600"
+                              initial={false}
+                              animate={{ width: `${Math.max(3, Math.min(100, (p.score / WIN_SCORE) * 100))}%` }}
+                              transition={{ type: 'spring', stiffness: 90, damping: 16 }}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-between px-3 text-xs font-bold">
+                              <span className="truncate flex items-center gap-1.5">
+                                {rank === 0 && p.score > 0 && <Crown size={12} className="text-yellow-400" />}
+                                {p.name}
+                              </span>
+                              <span className="text-red-200 tabular-nums"><AnimatedNumber value={p.score} /></span>
+                            </div>
+                          </div>
+                          <span className="w-7 text-right text-xs font-bold text-red-400 tabular-nums"><AnimatedNumber value={p.sips} /></span>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </motion.div>
               </motion.div>
@@ -848,50 +848,48 @@ const App = () => {
             {/* GANADOR */}
             {gameState === 'winner' && sorted.length > 0 && (
               <motion.div key="winner" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col items-center text-center gap-4 relative">
-                {/* chispas que suben */}
-                {Array.from({ length: 26 }).map((_, i) => (
+                {Array.from({ length: 24 }).map((_, i) => (
                   <motion.span
                     key={i}
                     className="absolute bottom-24 w-1.5 h-1.5 rounded-full"
-                    style={{ left: `${(i * 41) % 100}%`, background: PLAYER_COLORS[i % PLAYER_COLORS.length], boxShadow: `0 0 10px ${PLAYER_COLORS[i % PLAYER_COLORS.length]}` }}
+                    style={{ left: `${(i * 41) % 100}%`, background: ['#facc15', '#dc2626', '#9333ea'][i % 3] }}
                     animate={{ y: [0, -420 - (i % 5) * 60], opacity: [0, 1, 0] }}
                     transition={{ duration: 2.4 + (i % 4) * 0.5, repeat: Infinity, delay: (i % 9) * 0.25, ease: 'easeOut' }}
                   />
                 ))}
 
-                <motion.div variants={itemVariants} className="relative">
+                <motion.div variants={itemVariants} className="relative mt-2">
+                  <div className="absolute inset-0 bg-yellow-500 blur-[60px] opacity-20 animate-pulse" />
                   <motion.div animate={{ y: [0, -10, 0], rotate: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}>
-                    <Trophy size={96} className="text-yellow-300" style={{ filter: 'drop-shadow(0 0 18px #ffc61a)' }} />
+                    <Trophy size={96} className="text-yellow-400 drop-shadow-2xl relative z-10" />
                   </motion.div>
                 </motion.div>
 
-                <motion.h2 variants={itemVariants} className="font-neon text-4xl neon-text flicker" style={{ '--glow': '#ffc61a' }}>
-                  ¡GANADOR!
-                </motion.h2>
+                <motion.h2 variants={itemVariants} className="text-4xl font-black text-white">¡TENEMOS GANADOR!</motion.h2>
+                <motion.p variants={itemVariants} className="text-lg text-neutral-400 -mt-2">El rey/reina de la fiesta es:</motion.p>
 
                 <motion.div
                   variants={itemVariants}
-                  className="neon-box rounded-full px-8 py-2 font-neon text-4xl bg-black/60 -rotate-2"
-                  style={{ '--glow': sorted[0].color, color: sorted[0].color }}
+                  className="bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-10 py-3 rounded-full font-black text-3xl shadow-xl rotate-2"
                 >
                   {sorted[0].name}
                 </motion.div>
 
                 {/* Podio */}
-                <motion.div variants={itemVariants} className="flex items-end justify-center gap-2 h-36 w-full">
+                <motion.div variants={itemVariants} className="flex items-end justify-center gap-2 h-32 w-full">
                   {[1, 0, 2].map((pos) => {
                     const p = sorted[pos];
                     if (!p) return null;
-                    const h = [112, 84, 62][pos];
+                    const h = [100, 76, 56][pos];
+                    const tone = ['from-yellow-500 to-yellow-700', 'from-neutral-400 to-neutral-600', 'from-orange-600 to-orange-800'][pos];
                     return (
                       <div key={p.name} className="flex flex-col items-center w-24">
-                        <span className="text-xs font-bold truncate max-w-full mb-1" style={{ color: p.color }}>{p.name}</span>
+                        <span className="text-xs font-bold truncate max-w-full mb-1 text-neutral-300">{p.name}</span>
                         <motion.div
                           initial={{ height: 0 }}
                           animate={{ height: h }}
                           transition={{ type: 'spring', stiffness: 120, damping: 14, delay: 0.5 + pos * 0.2 }}
-                          className="w-full rounded-t-xl neon-box flex items-start justify-center pt-2 font-neon text-2xl"
-                          style={{ '--glow': p.color, background: `${p.color}22`, color: p.color }}
+                          className={`w-full rounded-t-xl bg-gradient-to-b ${tone} flex items-start justify-center pt-2 font-black text-2xl text-black/80`}
                         >
                           {pos + 1}
                         </motion.div>
@@ -900,31 +898,37 @@ const App = () => {
                   })}
                 </motion.div>
 
-                <motion.div variants={itemVariants} className="w-full rounded-2xl bg-black/50 border border-white/10 p-3">
-                  <h3 className="font-neon text-lg text-pink-300 mb-2 flex items-center justify-center gap-2"><Wine size={16} /> Contador de tragos</h3>
+                <motion.div variants={itemVariants} className="w-full bg-neutral-900/80 rounded-2xl p-5 border border-neutral-800">
+                  <h3 className="text-lg font-bold mb-3 text-left flex items-center gap-2"><Wine size={18} /> Contador de Tragos (Castigos)</h3>
                   {sorted.map((p, i) => (
                     <motion.div
                       key={p.name}
                       initial={{ x: -40, opacity: 0 }}
                       animate={{ x: 0, opacity: 1 }}
                       transition={{ ...spring, delay: 0.9 + i * 0.08 }}
-                      className="flex justify-between py-1.5 border-b border-white/10 last:border-0"
+                      className="flex justify-between py-2 border-b border-neutral-800 last:border-0"
                     >
-                      <span style={{ color: p.color }} className="font-bold">{p.name}</span>
-                      <span className="text-pink-300 font-bold">{p.sips} tragos · {p.score} pts</span>
+                      <span>{p.name}</span>
+                      <span className="text-red-400 font-bold">{p.sips} tragos · {p.score} pts</span>
                     </motion.div>
                   ))}
                 </motion.div>
 
-                <motion.div variants={itemVariants} className="w-full">
-                  <NeonBtn color="#22e6ff" onClick={restartGame} className="w-full py-3.5 text-lg">
-                    <span className="flex items-center gap-2"><RotateCcw size={20} /> Jugar de nuevo</span>
-                  </NeonBtn>
+                <motion.div variants={itemVariants}>
+                  <Btn onClick={restartGame} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 flex items-center gap-2">
+                    <RotateCcw size={20} /> Jugar de Nuevo
+                  </Btn>
                 </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+
+        <style>{`
+          .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        `}</style>
       </div>
     </MotionConfig>
   );
