@@ -96,7 +96,7 @@ const tmpV = new THREE.Vector3();
 const tmpQ = new THREE.Quaternion();
 const tmpE = new THREE.Euler();
 
-const ActiveCard = ({ data, verdict, exit, delay, view, onGone }) => {
+const ActiveCard = ({ data, verdict, exit, delay, view, drag, onGone }) => {
   const texture = useMemo(() => makeFaceTexture(data), [data]);
   useEffect(() => () => texture.dispose(), [texture]);
   const verdictTexture = useMemo(() => (verdict ? makeVerdictTexture(verdict) : null), [verdict]);
@@ -107,7 +107,7 @@ const ActiveCard = ({ data, verdict, exit, delay, view, onGone }) => {
   const flip = useRef({ current: 0 });
 
   const g = useRef();
-  const s = useRef({ start: null, exitStart: null, gone: false, shake: data.negotiated ? 1 : 0 });
+  const s = useRef({ start: null, exitStart: null, gone: false, shake: data.negotiated ? 1 : 0, off: new THREE.Vector3(), throwDir: null, from: null, fromQ: null });
   const basePos = useRef(new THREE.Vector3());
   const baseQuat = useRef(new THREE.Quaternion());
 
@@ -144,8 +144,14 @@ const ActiveCard = ({ data, verdict, exit, delay, view, onGone }) => {
     obj.visible = t >= st.start;
 
     if (!exit) {
-      obj.position.copy(basePos.current);
-      obj.quaternion.copy(baseQuat.current);
+      // Arrastre con el dedo: la carta sigue al puntero y vuelve si se suelta sin fuerza
+      const d = drag.current;
+      const k = view.width / window.innerWidth;
+      tmpV.set(d.active ? d.x * k : 0, d.active ? -d.y * k : 0, 0);
+      easing.damp3(st.off, tmpV, d.active ? 0.04 : 0.18, dt);
+      obj.position.copy(basePos.current).add(st.off);
+      tmpQ.setFromEuler(tmpE.set(st.off.y * 0.12, 0, -st.off.x * 0.12));
+      obj.quaternion.copy(baseQuat.current).multiply(tmpQ);
       obj.scale.setScalar(scale);
       return;
     }
@@ -160,6 +166,27 @@ const ActiveCard = ({ data, verdict, exit, delay, view, onGone }) => {
       obj.quaternion.slerpQuaternions(baseQuat.current, DECK_QUAT, q);
       obj.scale.setScalar(THREE.MathUtils.lerp(scale, DECK_SCALE, q));
       setOpacity(obj, q > 0.85 ? 1 - (q - 0.85) / 0.15 : 1);
+      if (q >= 1 && !st.gone) { st.gone = true; onGone(); }
+      return;
+    }
+    if (exit === 'throw') {
+      // Lanzada: sale en la dirección del gesto y se pierde hacia el fondo
+      if (!st.throwDir) {
+        const td = drag.current.throw || { x: 0, y: -1 };
+        st.throwDir = new THREE.Vector3(td.x, -td.y, 0);
+        if (st.throwDir.lengthSq() < 1e-6) st.throwDir.set(0, 1, 0);
+        st.throwDir.normalize();
+        st.from = obj.position.clone();
+        st.fromQ = obj.quaternion.clone();
+      }
+      const q = clamp01((t - st.exitStart) / 0.75);
+      const k = 1 - Math.pow(1 - q, 2);
+      obj.position.copy(st.from).addScaledVector(st.throwDir, k * view.height * 1.3);
+      obj.position.z -= k * 16;
+      tmpQ.setFromEuler(tmpE.set(-k * 1.6 * st.throwDir.y, k * 1.6 * st.throwDir.x, -k * 2.4 * st.throwDir.x));
+      obj.quaternion.copy(st.fromQ).multiply(tmpQ);
+      obj.scale.setScalar(scale);
+      setOpacity(obj, q > 0.55 ? 1 - (q - 0.55) / 0.45 : 1);
       if (q >= 1 && !st.gone) { st.gone = true; onGone(); }
       return;
     }
@@ -237,7 +264,7 @@ const useCardView = () => {
   return { width: v.width, height: v.height, scale, y: v.height * 0.035 };
 };
 
-const World = ({ mode, card, verdict, exitType }) => {
+const World = ({ mode, card, verdict, exitType, drag }) => {
   const view = useCardView();
   const [cards, setCards] = useState([]);
   const [deckUp, setDeckUp] = useState(false);
@@ -280,6 +307,7 @@ const World = ({ mode, card, verdict, exitType }) => {
           data={c.data}
           verdict={c.exit ? c.verdict : verdict && verdict.key === c.key ? verdict : null}
           exit={c.exit}
+          drag={drag}
           delay={c.delay}
           view={view}
           onGone={() => setCards((cs) => cs.filter((x) => x.key !== c.key))}
@@ -314,14 +342,14 @@ const World = ({ mode, card, verdict, exitType }) => {
   );
 };
 
-const Scene = ({ mode, card, verdict, exitType }) => (
+const Scene = ({ mode, card, verdict, exitType, drag }) => (
   <Canvas
     className="!fixed inset-0"
     dpr={[1, 2]}
     gl={{ antialias: true, powerPreference: 'high-performance' }}
     camera={{ position: [0, 0.4, 8], fov: 38 }}
   >
-    <World mode={mode} card={card} verdict={verdict} exitType={exitType} />
+    <World mode={mode} card={card} verdict={verdict} exitType={exitType} drag={drag} />
   </Canvas>
 );
 

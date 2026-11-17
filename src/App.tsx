@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, Suspense } from 'react';
-import { Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ArrowRight } from 'lucide-react';
+import { Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 
 const WIN_SCORE = 400;
@@ -372,6 +372,9 @@ const App = () => {
   const [toast, setToast] = useState(null);
   const [scoresOpen, setScoresOpen] = useState(false);
   const [verdict, setVerdict] = useState(null);
+  // Arrastre de la carta (compartido con la escena 3D sin re-renderizar)
+  const drag = useRef({ active: false, x: 0, y: 0, throw: null });
+  const dragStart = useRef(null);
 
   // Multiplicador de probabilidad por reto (baja a 1/4 cada vez que sale)
   const repeatMultipliers = useRef(BASE_CHALLENGES.map(() => 1));
@@ -477,11 +480,11 @@ const App = () => {
     });
   };
 
-  const continueTurn = () => {
+  const continueTurn = (exit) => {
     if (!verdict) return;
     const { kind, gameOver } = verdict;
     setVerdict(null);
-    setExitType(kind);
+    setExitType(exit || kind);
     if (gameOver) {
       setGameState('winner');
       return;
@@ -489,6 +492,48 @@ const App = () => {
     const nextIndex = (currentPlayerIndex + 1) % players.length;
     setCurrentPlayerIndex(nextIndex);
     pickChallenge(nextIndex, players);
+  };
+
+  // Lanzar la carta en una dirección (en píxeles de pantalla)
+  const throwCard = (dir) => {
+    drag.current.throw = dir;
+    drag.current.active = false;
+    continueTurn('throw');
+  };
+
+  const onDragStart = (e) => {
+    if (!verdict) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, lt: performance.now(), vx: 0, vy: 0 };
+    drag.current.active = true;
+    drag.current.x = 0;
+    drag.current.y = 0;
+  };
+  const onDragMove = (e) => {
+    const st = dragStart.current;
+    if (!st) return;
+    const now = performance.now();
+    const dt = Math.max(1, now - st.lt);
+    st.vx = (e.clientX - st.lx) / dt;
+    st.vy = (e.clientY - st.ly) / dt;
+    st.lx = e.clientX; st.ly = e.clientY; st.lt = now;
+    drag.current.x = e.clientX - st.x;
+    drag.current.y = e.clientY - st.y;
+  };
+  const onDragEnd = () => {
+    const st = dragStart.current;
+    if (!st) return;
+    dragStart.current = null;
+    const { x, y } = drag.current;
+    const dist = Math.hypot(x, y);
+    const speed = Math.hypot(st.vx, st.vy);
+    if (dist > 90 || (speed > 0.6 && dist > 25)) {
+      const dx = speed > 0.6 ? st.vx : x;
+      const dy = speed > 0.6 ? st.vy : y;
+      throwCard({ x: dx, y: dy });
+    } else {
+      drag.current.active = false; // vuelve a su lugar
+    }
   };
 
   const pointsRow = (p, amount) => ({
@@ -597,7 +642,7 @@ const App = () => {
       <div className="fixed inset-0 bg-[#0a0a0a] text-white overflow-hidden">
         {hasWebGL && (
           <Suspense fallback={null}>
-            <Scene mode={sceneMode} card={card} verdict={verdict} exitType={exitType} />
+            <Scene mode={sceneMode} card={card} verdict={verdict} exitType={exitType} drag={drag} />
           </Suspense>
         )}
 
@@ -722,7 +767,17 @@ const App = () => {
                 </div>
 
                 {/* Zona de la carta (la carta vive en la escena 3D) */}
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex items-center justify-center relative">
+                  {verdict && (
+                    // Capa táctil para arrastrar y lanzar la carta
+                    <div
+                      className="absolute inset-0 pointer-events-auto touch-none cursor-grab active:cursor-grabbing"
+                      onPointerDown={onDragStart}
+                      onPointerMove={onDragMove}
+                      onPointerUp={onDragEnd}
+                      onPointerCancel={onDragEnd}
+                    />
+                  )}
                   <p className="sr-only" aria-live="polite">
                     {verdict
                       ? `${verdict.title}. ${verdict.rows.map((r) => `${r.name}: ${r.amount}`).join('. ')}.`
@@ -755,21 +810,28 @@ const App = () => {
                 <motion.div variants={item} className="relative">
                 <AnimatePresence mode="wait" initial={false}>
                 {verdict ? (
-                  <motion.div key="next" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }} className="space-y-2.5">
-                    {verdict.gameOver ? (
-                      <Primary onClick={continueTurn} className="flex items-center justify-center gap-2">
-                        <Trophy size={18} /> Ver ganador
-                      </Primary>
-                    ) : (
-                      <motion.button
-                        whileTap={{ scale: 0.96 }}
-                        onClick={continueTurn}
-                        className="w-full rounded-full bg-white text-black py-4 font-bold flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.12)]"
-                      >
-                        Siguiente turno · {players[(currentPlayerIndex + 1) % players.length].name} <ArrowRight size={18} />
-                      </motion.button>
-                    )}
-                    <div className="h-[2.875rem]" />
+                  <motion.div key="next" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }}>
+                    <button
+                      onClick={() => throwCard({ x: 0, y: -1 })}
+                      className="w-full h-[7.25rem] flex flex-col items-center justify-center gap-1.5 text-neutral-400"
+                      aria-label={verdict.gameOver ? 'Lanzar la carta y ver al ganador' : 'Lanzar la carta y pasar al siguiente turno'}
+                    >
+                      <span className="flex flex-col items-center -space-y-2.5">
+                        {[0, 1, 2].map((i) => (
+                          <motion.span
+                            key={i}
+                            animate={{ opacity: [0.15, 1, 0.15], y: [4, -4, 4] }}
+                            transition={{ repeat: Infinity, duration: 1.4, delay: (2 - i) * 0.18, ease: 'easeInOut' }}
+                          >
+                            <ChevronUp size={22} className={verdict.gameOver ? 'text-yellow-400' : 'text-white'} />
+                          </motion.span>
+                        ))}
+                      </span>
+                      <span className="text-sm font-semibold text-white">Desliza la carta para lanzarla</span>
+                      <span className="text-xs">
+                        {verdict.gameOver ? 'y descubre al ganador' : `Sigue ${players[(currentPlayerIndex + 1) % players.length].name}`}
+                      </span>
+                    </button>
                   </motion.div>
                 ) : (
                 <motion.div key="actions" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }} className="space-y-2.5">
