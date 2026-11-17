@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Flame, Wine, UserPlus, Play, RotateCcw, Trophy, X, Check, Crown, Shuffle, AlertTriangle, ShieldX, Heart, Sparkles } from 'lucide-react';
-import { motion, AnimatePresence, MotionConfig, animate, useMotionValue, useTransform } from 'framer-motion';
+import React, { useState, useRef, useMemo, Suspense } from 'react';
+import { Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX } from 'lucide-react';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 
 const WIN_SCORE = 400;
 const REPEAT_DECAY = 1 / 4; // cada vez que sale un reto, su probabilidad se multiplica por 1/4
@@ -231,91 +231,129 @@ const pickPartnerIndex = (playerCount, excludeIdx) => {
   return idx;
 };
 
-// ---------- Estética original (negro + rojo/morado) con animaciones ----------
-const PLAYER_COLORS = ['#ef4444', '#a855f7', '#ec4899', '#f59e0b', '#22c55e', '#38bdf8'];
+// ---------- Interfaz ----------
+const LEVEL_LABELS = { soft: 'Para calentar', medium: 'Nivel medio', hard: 'Prueba extrema' };
+const spring = { type: 'spring', stiffness: 380, damping: 30 };
 
-const LEVELS = {
-  soft: { label: 'Para Calentar', Icon: Sparkles, chip: 'bg-pink-500/20 text-pink-500', flames: 1 },
-  medium: { label: 'Nivel Medio', Icon: Heart, chip: 'bg-purple-500/20 text-purple-500', flames: 2 },
-  hard: { label: 'Prueba Extrema', Icon: Flame, chip: 'bg-red-500/20 text-red-500', flames: 3 },
-};
+const hasWebGL = (() => {
+  try {
+    const c = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+  } catch {
+    return false;
+  }
+})();
 
-const spring = { type: 'spring', stiffness: 380, damping: 26 };
-
-const AnimatedNumber = ({ value }) => {
-  const mv = useMotionValue(value);
-  const rounded = useTransform(mv, (v) => Math.round(v));
-  useEffect(() => {
-    const controls = animate(mv, value, { duration: 0.8, ease: 'easeOut' });
-    return () => controls.stop();
-  }, [value]);
-  return <motion.span>{rounded}</motion.span>;
-};
-
-const Background = () => (
-  <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-    <motion.div
-      className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-red-900/30 rounded-full blur-[100px]"
-      animate={{ x: [0, 60, 0], y: [0, 40, 0], scale: [1, 1.15, 1] }}
-      transition={{ repeat: Infinity, duration: 12, ease: 'easeInOut' }}
-    />
-    <motion.div
-      className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-900/20 rounded-full blur-[100px]"
-      animate={{ x: [0, -60, 0], y: [0, -50, 0], scale: [1, 1.2, 1] }}
-      transition={{ repeat: Infinity, duration: 14, ease: 'easeInOut' }}
-    />
-    {/* brasas que suben */}
-    {Array.from({ length: 16 }).map((_, i) => (
-      <motion.span
-        key={i}
-        className="absolute bottom-0 w-1 h-1 rounded-full"
-        style={{ left: `${(i * 37) % 100}%`, background: i % 2 ? '#dc2626' : '#9333ea' }}
-        animate={{ y: [0, -900], opacity: [0, 0.7, 0] }}
-        transition={{ duration: 10 + (i % 5) * 3, repeat: Infinity, delay: -i * 1.6, ease: 'linear' }}
-      />
-    ))}
-  </div>
-);
-
-const Logo = () => (
+const Logo = ({ small = false }) => (
   <motion.h1
-    initial={{ y: -50, opacity: 0, skewX: -6 }}
-    animate={{ y: 0, opacity: 1, skewX: -6 }}
+    layout
+    initial={{ opacity: 0, y: -20 }}
+    animate={{ opacity: 1, y: 0 }}
     transition={spring}
-    className="text-5xl font-black tracking-tighter italic select-none"
+    className={`font-black tracking-tighter italic -skew-x-6 select-none text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-purple-600 drop-shadow-[0_0_14px_rgba(220,38,38,0.45)] ${small ? 'text-2xl' : 'text-6xl'}`}
     aria-label="Chuto 15"
   >
-    <motion.span
-      className="inline-block text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-purple-600 drop-shadow-[0_0_10px_rgba(220,38,38,0.5)]"
-      animate={{ scale: [1, 1.04, 1] }}
-      transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
-    >
-      CHUTO<span className="text-white">15</span>
-    </motion.span>
+    CHUTO<span className="text-white">15</span>
   </motion.h1>
 );
 
-const Btn = ({ className = '', children, ...rest }) => (
+const fade = {
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0, transition: { ...spring, staggerChildren: 0.07 } },
+  exit: { opacity: 0, y: 16, transition: { duration: 0.18 } },
+};
+const item = { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0, transition: spring } };
+
+const Glass = ({ className = '', children }) => (
+  <motion.div variants={item} className={`rounded-3xl bg-black/45 backdrop-blur-xl border border-white/10 ${className}`}>
+    {children}
+  </motion.div>
+);
+
+const Primary = ({ className = '', children, ...rest }) => (
   <motion.button
-    whileHover={rest.disabled ? undefined : { scale: 1.03 }}
-    whileTap={rest.disabled ? undefined : { scale: 0.94 }}
-    transition={spring}
-    className={className}
+    whileTap={rest.disabled ? undefined : { scale: 0.96 }}
+    className={`w-full rounded-full py-4 font-bold text-white bg-gradient-to-r from-red-600 to-purple-700 shadow-[0_0_30px_rgba(220,38,38,0.35)] disabled:opacity-30 disabled:shadow-none transition-opacity ${className}`}
     {...rest}
   >
     {children}
   </motion.button>
 );
 
-const screenVariants = {
-  initial: { opacity: 0, y: 30, scale: 0.97 },
-  animate: { opacity: 1, y: 0, scale: 1, transition: { ...spring, staggerChildren: 0.08 } },
-  exit: { opacity: 0, y: -30, scale: 0.97, transition: { duration: 0.2 } },
+const Ghost = ({ className = '', children, ...rest }) => (
+  <motion.button
+    whileTap={rest.disabled ? undefined : { scale: 0.94 }}
+    className={`rounded-full border border-white/10 bg-white/[0.04] backdrop-blur-md text-neutral-300 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-30 hover:bg-white/[0.08] transition-colors ${className}`}
+    {...rest}
+  >
+    {children}
+  </motion.button>
+);
+
+const IconBtn = ({ children, ...rest }) => (
+  <motion.button
+    whileTap={{ scale: 0.9 }}
+    className="w-10 h-10 rounded-full border border-white/10 bg-white/[0.04] backdrop-blur-md flex items-center justify-center text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-colors"
+    {...rest}
+  >
+    {children}
+  </motion.button>
+);
+
+const ScoreSheet = ({ open, onClose, players }) => {
+  const sorted = [...players].sort((a, b) => b.score - a.score);
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+          <motion.div
+            role="dialog"
+            aria-label="Puntajes"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            className="relative w-full max-w-md rounded-t-[2rem] bg-[#111014]/95 border-t border-white/10 px-6 pt-3 pb-[max(env(safe-area-inset-bottom),1.5rem)]"
+          >
+            <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-5" />
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold">Puntajes</h2>
+              <IconBtn onClick={onClose} aria-label="Cerrar"><X size={18} /></IconBtn>
+            </div>
+            <div className="space-y-4 max-h-[55vh] overflow-y-auto">
+              {sorted.map((p, i) => (
+                <motion.div key={p.name} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ ...spring, delay: 0.05 * i }}>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span className="flex items-baseline gap-3">
+                      <span className="text-xs text-neutral-500 w-4 tabular-nums">{i + 1}</span>
+                      <span className="font-semibold">{p.name}</span>
+                    </span>
+                    <span className="flex items-baseline gap-4 tabular-nums">
+                      <span className="text-xs text-red-400 flex items-center gap-1"><Wine size={12} /> {p.sips}</span>
+                      <span className="font-bold w-14 text-right">{p.score}</span>
+                    </span>
+                  </div>
+                  <div className="h-[3px] rounded-full bg-white/[0.06] overflow-hidden ml-7">
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-red-500 to-purple-600"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (p.score / WIN_SCORE) * 100)}%` }}
+                      transition={{ type: 'spring', stiffness: 80, damping: 18, delay: 0.1 + 0.05 * i }}
+                    />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <p className="text-center text-xs text-neutral-600 mt-6">Gana el primero en llegar a {WIN_SCORE} pts</p>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 };
-const itemVariants = {
-  initial: { opacity: 0, y: 26 },
-  animate: { opacity: 1, y: 0, transition: spring },
-};
+
+const Scene = React.lazy(() => import('./scene/Scene.jsx'));
 
 const App = () => {
   const [gameState, setGameState] = useState('consent');
@@ -323,38 +361,28 @@ const App = () => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [currentChallenge, setCurrentChallenge] = useState(null);
-
-  // ESTADOS DE NEGOCIACIÓN Y PARTNER
   const [isNegotiated, setIsNegotiated] = useState(false);
   const [negotiatedStakes, setNegotiatedStakes] = useState(null);
   const [partnerPlayerIndex, setPartnerPlayerIndex] = useState(null);
   const [nameError, setNameError] = useState('');
 
-  // ESTADOS VISUALES
+  // Estado visual
   const [cardKey, setCardKey] = useState(0);
-  const [pops, setPops] = useState([]);
-  const [turnBanner, setTurnBanner] = useState(null);
+  const [exitType, setExitType] = useState('done');
+  const [toast, setToast] = useState(null);
+  const [scoresOpen, setScoresOpen] = useState(false);
 
   // Multiplicador de probabilidad por reto (baja a 1/4 cada vez que sale)
   const repeatMultipliers = useRef(BASE_CHALLENGES.map(() => 1));
-  const colorSeed = useRef(0);
-  const popId = useRef(0);
+  const toastId = useRef(0);
 
-  // --- EFECTOS VISUALES ---
-  const addPop = (text, color, delay = 0) => {
-    const id = popId.current++;
-    setTimeout(() => {
-      setPops((p) => [...p, { id, text, color }]);
-      setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1600);
-    }, delay);
-  };
-  const showTurn = (player) => {
-    const id = popId.current++;
-    setTurnBanner({ id, name: player.name, color: player.color });
-    setTimeout(() => setTurnBanner((b) => (b && b.id === id ? null : b)), 1200);
+  const showToast = (text, tone = 'text-white') => {
+    const id = ++toastId.current;
+    setToast({ id, text, tone });
+    setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), 1700);
   };
 
-  // --- LOGICA DE CONFIGURACIÓN ---
+  // --- CONFIGURACIÓN ---
   const addPlayer = () => {
     const name = newPlayerName.trim();
     if (name === '') return;
@@ -363,8 +391,7 @@ const App = () => {
       return;
     }
     setNameError('');
-    const color = PLAYER_COLORS[colorSeed.current++ % PLAYER_COLORS.length];
-    setPlayers([...players, { name, score: 0, sips: 0, color }]);
+    setPlayers([...players, { name, score: 0, sips: 0 }]);
     setNewPlayerName('');
   };
 
@@ -378,95 +405,89 @@ const App = () => {
     pickChallenge(0, players);
   };
 
-  // --- LOGICA DE JUEGO ---
+  // --- JUEGO ---
   const pickChallenge = (playerIdx, currentPlayers) => {
     setIsNegotiated(false);
     setNegotiatedStakes(null);
     setPartnerPlayerIndex(null);
     setCardKey((k) => k + 1);
-    showTurn(currentPlayers[playerIdx]);
 
-    // Los ya salidos pesan 1/4 cada vez que aparecen
     const idx = weightedPick(repeatMultipliers.current);
     repeatMultipliers.current[idx] *= REPEAT_DECAY;
-    const selectedChallenge = BASE_CHALLENGES[idx];
-    setCurrentChallenge(selectedChallenge);
+    const selected = BASE_CHALLENGES[idx];
+    setCurrentChallenge(selected);
 
-    if (currentPlayers.length > 1 && selectedChallenge.text.includes('{partner}')) {
+    if (currentPlayers.length > 1 && selected.text.includes('{partner}')) {
       setPartnerPlayerIndex(pickPartnerIndex(currentPlayers.length, playerIdx));
     }
   };
 
-  // --- LÓGICA DE NEGOCIACIÓN ---
   const handleNegotiate = () => {
-    if (!currentChallenge) return;
-
-    const fixedPoints = Math.floor(currentChallenge.points * 1.5);
-    const fixedSips = calculateSips(currentChallenge) * 2; // Doble castigo al negociar
-    setNegotiatedStakes({ points: fixedPoints, sips: fixedSips });
+    if (!currentChallenge || isNegotiated) return;
+    setNegotiatedStakes({
+      points: Math.floor(currentChallenge.points * 1.5),
+      sips: calculateSips(currentChallenge) * 2, // Doble castigo al negociar
+    });
 
     // Pesos: Hard=5, Medium=3, Soft=1, multiplicados por el decaimiento de repetición
     const currentIdx = BASE_CHALLENGES.indexOf(currentChallenge);
-    const weights = BASE_CHALLENGES.map((challenge, index) => {
-      if (index === currentIdx) return 0;
-      const base = challenge.intensity === 'hard' ? 5 : challenge.intensity === 'medium' ? 3 : 1;
-      return base * repeatMultipliers.current[index];
+    const weights = BASE_CHALLENGES.map((c, i) => {
+      if (i === currentIdx) return 0;
+      const base = c.intensity === 'hard' ? 5 : c.intensity === 'medium' ? 3 : 1;
+      return base * repeatMultipliers.current[i];
     });
     const randomIndex = weightedPick(weights);
     repeatMultipliers.current[randomIndex] *= REPEAT_DECAY;
-    const newChallenge = BASE_CHALLENGES[randomIndex];
-    setCurrentChallenge(newChallenge);
+    const next = BASE_CHALLENGES[randomIndex];
+    setCurrentChallenge(next);
     setIsNegotiated(true);
+    setExitType('swap');
     setCardKey((k) => k + 1);
 
-    if (players.length > 1 && newChallenge.text.includes('{partner}') && partnerPlayerIndex === null) {
+    if (players.length > 1 && next.text.includes('{partner}') && partnerPlayerIndex === null) {
       setPartnerPlayerIndex(pickPartnerIndex(players.length, currentPlayerIndex));
-    } else if (!newChallenge.text.includes('{partner}')) {
+    } else if (!next.text.includes('{partner}')) {
       setPartnerPlayerIndex(null);
     }
-    addPop('DOBLE RIESGO', '#facc15');
+    showToast('Doble riesgo', 'text-amber-400');
   };
 
-  // Stakes actuales (negociados o normales)
-  const getCurrentStakes = () => {
-    if (isNegotiated && negotiatedStakes) {
-      return { points: negotiatedStakes.points, sips: negotiatedStakes.sips };
-    }
-    return { points: currentChallenge.points, sips: calculateSips(currentChallenge) };
-  };
+  const getCurrentStakes = () =>
+    isNegotiated && negotiatedStakes
+      ? { points: negotiatedStakes.points, sips: negotiatedStakes.sips }
+      : { points: currentChallenge.points, sips: calculateSips(currentChallenge) };
 
-  // Guarda los jugadores actualizados y, o termina la partida, o pasa el turno
-  const finishTurn = (updatedPlayers) => {
-    setPlayers(updatedPlayers);
-    if (updatedPlayers.some((p) => p.score >= WIN_SCORE)) {
+  // Guarda los jugadores y, o termina la partida, o pasa el turno
+  const finishTurn = (updated, exit) => {
+    setExitType(exit);
+    setPlayers(updated);
+    if (updated.some((p) => p.score >= WIN_SCORE)) {
       setGameState('winner');
       return;
     }
-    nextTurn(updatedPlayers);
+    const nextIndex = (currentPlayerIndex + 1) % updated.length;
+    setCurrentPlayerIndex(nextIndex);
+    pickChallenge(nextIndex, updated);
   };
 
-  // --- PARTNER REFUSAL ---
   const handlePartnerRefusal = () => {
     const { points, sips } = getCurrentStakes();
     const mine = Math.floor(points / 2);
     const theirs = Math.ceil(sips / 2);
-    const me = players[currentPlayerIndex];
     const partner = players[partnerPlayerIndex];
-    const newPlayers = players.map((p, i) => {
+    const updated = players.map((p, i) => {
       if (i === currentPlayerIndex) return { ...p, score: p.score + mine };
       if (i === partnerPlayerIndex) return { ...p, sips: p.sips + theirs };
       return p;
     });
-    addPop('SE OPONE', '#ff9f1c');
-    addPop(`${me.name} +${mine}`, '#4ade80', 250);
-    addPop(`${partner.name} bebe ${theirs}`, '#f87171', 500);
-    finishTurn(newPlayers);
+    showToast(`${partner.name} se opone · bebe ${theirs}`, 'text-orange-300');
+    finishTurn(updated, 'refuse');
   };
 
   const handleResult = (success) => {
     const { points, sips } = getCurrentStakes();
     const me = players[currentPlayerIndex];
-    const newPlayers = players.map((p, i) => {
+    const updated = players.map((p, i) => {
       if (success) {
         if (i === currentPlayerIndex) return { ...p, score: p.score + points };
         if (i === partnerPlayerIndex) return { ...p, score: p.score + Math.floor(points / 2) };
@@ -475,24 +496,13 @@ const App = () => {
       }
       return p;
     });
-    if (success) {
-      addPop(`+${points}`, '#4ade80');
-      if (partnerPlayerIndex !== null) {
-        addPop(`${players[partnerPlayerIndex].name} +${Math.floor(points / 2)}`, '#38bdf8', 250);
-      }
-    } else {
-      addPop(`${me.name} bebe ${sips}`, '#f87171');
-    }
-    finishTurn(newPlayers);
-  };
-
-  const nextTurn = (updatedPlayers) => {
-    const nextIndex = (currentPlayerIndex + 1) % updatedPlayers.length;
-    setCurrentPlayerIndex(nextIndex);
-    pickChallenge(nextIndex, updatedPlayers);
+    if (success) showToast(`${me.name} +${points} pts`, 'text-green-400');
+    else showToast(`${me.name} bebe ${sips}`, 'text-red-400');
+    finishTurn(updated, success ? 'done' : 'fail');
   };
 
   const restartGame = () => {
+    setScoresOpen(false);
     setPlayers(players.map((p) => ({ ...p, score: 0, sips: 0 })));
     setGameState('setup');
     setCurrentPlayerIndex(0);
@@ -503,432 +513,248 @@ const App = () => {
     setPartnerPlayerIndex(null);
   };
 
-  const stakes = currentChallenge
-    ? (isNegotiated && negotiatedStakes
-        ? { win: negotiatedStakes.points, loseSips: negotiatedStakes.sips }
-        : { win: currentChallenge.points, loseSips: calculateSips(currentChallenge) })
-    : { win: 0, loseSips: 0 };
-  const drinkType = isDrinkChallenge(currentChallenge);
-  const level = currentChallenge ? LEVELS[currentChallenge.intensity] : LEVELS.soft;
+  // --- Datos derivados ---
   const me = players[currentPlayerIndex];
   const partner = partnerPlayerIndex !== null ? players[partnerPlayerIndex] : null;
-  const sorted = [...players].sort((a, b) => b.score - a.score);
+  const drinkType = isDrinkChallenge(currentChallenge);
+  const stakes = currentChallenge
+    ? isNegotiated && negotiatedStakes
+      ? { win: negotiatedStakes.points, sips: negotiatedStakes.sips }
+      : { win: currentChallenge.points, sips: calculateSips(currentChallenge) }
+    : { win: 0, sips: 0 };
 
-  // Texto del reto, palabra por palabra (con el partner resaltado)
-  const challengeTokens = () => {
-    if (!currentChallenge) return [];
+  const plainText = currentChallenge
+    ? currentChallenge.text.split('{partner}').join(partner ? partner.name : 'alguien')
+    : '';
+
+  // Carta que se dibuja en 3D
+  const card = useMemo(() => {
+    if (gameState !== 'playing' || !currentChallenge) return null;
     const tokens = [];
     const parts = currentChallenge.text.split('{partner}');
     parts.forEach((part, i) => {
-      part.split(' ').filter(Boolean).forEach((w) => tokens.push({ t: w }));
-      if (i < parts.length - 1) tokens.push({ partner: true });
+      part.split(' ').filter(Boolean).forEach((t) => tokens.push({ t }));
+      if (i < parts.length - 1) tokens.push({ t: partner ? partner.name : 'alguien', partner: true });
     });
-    return tokens;
-  };
+    return {
+      key: cardKey,
+      intensity: currentChallenge.intensity,
+      negotiated: isNegotiated,
+      label: isNegotiated ? 'Negociado' : drinkType ? 'Bebe o no' : LEVEL_LABELS[currentChallenge.intensity],
+      tokens,
+      win: stakes.win,
+      sips: stakes.sips,
+      partnerName: partner ? partner.name : null,
+      partnerWin: Math.floor(stakes.win / 2),
+      refuseSips: Math.ceil(stakes.sips / 2),
+    };
+  }, [cardKey, gameState]);
 
-  // --- RENDERIZADO ---
+  const sceneMode = gameState === 'playing' ? 'playing' : gameState === 'winner' ? 'winner' : 'intro';
+  const winner = [...players].sort((a, b) => b.score - a.score)[0];
+
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-red-500 selection:text-white overflow-x-hidden relative">
-        <Background />
+      <div className="fixed inset-0 bg-[#0a0a0a] text-white overflow-hidden">
+        {hasWebGL && (
+          <Suspense fallback={null}>
+            <Scene mode={sceneMode} card={card} exitType={exitType} />
+          </Suspense>
+        )}
 
-        {/* Banner de turno: barrido */}
-        <AnimatePresence>
-          {turnBanner && (
-            <motion.div
-              key={turnBanner.id}
-              className="fixed inset-0 z-40 pointer-events-none flex items-center justify-center overflow-hidden"
-              initial="in" animate="in" exit="out"
-            >
-              <motion.div
-                className="absolute inset-x-0 h-28 bg-gradient-to-r from-transparent via-red-900/60 to-transparent backdrop-blur-sm"
-                variants={{ in: { scaleY: 1, opacity: 1 }, out: { scaleY: 0, opacity: 0 } }}
-                initial={{ scaleY: 0, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-              />
-              <motion.div
-                className="relative text-center"
-                initial={{ x: '-110vw', skewX: -18 }}
-                animate={{ x: 0, skewX: -8, transition: { type: 'spring', stiffness: 220, damping: 20 } }}
-                exit={{ x: '110vw', skewX: -18, transition: { duration: 0.28, ease: 'easeIn' } }}
-              >
-                <div className="text-xs tracking-[0.5em] text-neutral-300 font-bold">TURNO DE</div>
-                <div className="text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-purple-500 break-all px-4">
-                  {turnBanner.name}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Textos flotantes de resultado */}
-        <div className="fixed inset-x-0 top-[26%] z-30 flex flex-col items-center gap-2 pointer-events-none">
-          <AnimatePresence>
-            {pops.map((p) => (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, y: 40, scale: 0.5 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -60, scale: 1.1 }}
-                transition={spring}
-                className="font-black text-2xl px-5 py-1 rounded-full bg-neutral-900/90 border border-neutral-700 shadow-2xl"
-                style={{ color: p.color }}
-              >
-                {p.text}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-
-        <div className="relative z-10 max-w-md mx-auto min-h-screen flex flex-col p-4">
-          <header className="flex justify-center items-center py-4 mb-2">
-            <Logo />
-          </header>
-
+        <div className="relative z-10 h-[100dvh] max-w-md mx-auto flex flex-col px-5 pt-[max(env(safe-area-inset-top),1.25rem)] pb-[max(env(safe-area-inset-bottom),1.25rem)] pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto">
           <AnimatePresence mode="wait">
 
             {/* AVISO +18 */}
             {gameState === 'consent' && (
-              <motion.div key="consent" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col justify-center gap-6">
-                <motion.div variants={itemVariants} className="bg-neutral-900/60 backdrop-blur-md border border-neutral-800 p-6 rounded-2xl shadow-2xl text-center">
-                  <motion.div
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.8 }}
-                    className="text-6xl font-black text-red-500 drop-shadow-[0_0_12px_rgba(220,38,38,0.6)]"
-                  >+18</motion.div>
-                  <h2 className="text-xl font-bold mt-1 mb-4 text-red-400">Contenido para adultos</h2>
-                  <ul className="text-neutral-300 text-sm space-y-2 text-left">
-                    {[
-                      'Este juego contiene retos sexuales y de consumo de alcohol.',
-                      'Solo para mayores de 18 años.',
-                      'Todos los jugadores deben estar de acuerdo en participar.',
-                      'Cualquiera puede negarse a un reto en cualquier momento. Nadie debe sentirse presionado.',
-                      'Bebe con moderación y no conduzcas.',
-                    ].map((t, i) => (
-                      <motion.li key={i} initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.3 + i * 0.1 }} className="flex gap-2">
-                        <span className="text-red-500">•</span> {t}
-                      </motion.li>
-                    ))}
-                  </ul>
-                </motion.div>
-                <motion.div variants={itemVariants}>
-                  <Btn onClick={() => setGameState('setup')} className="w-full bg-gradient-to-r from-red-600 to-purple-700 hover:from-red-500 hover:to-purple-600 text-white font-bold py-4 rounded-2xl text-lg shadow-[0_0_20px_rgba(220,38,38,0.4)]">
-                    Soy mayor de 18 y todos aceptamos jugar
-                  </Btn>
+              <motion.div key="consent" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+                <motion.div variants={item} className="flex justify-center pt-6"><Logo /></motion.div>
+                <div className="flex-1" />
+                <Glass className="p-6 pointer-events-auto">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-xs font-bold text-red-400 border border-red-500/40 rounded-full px-2.5 py-0.5">+18</span>
+                    <h2 className="font-bold text-lg">Solo para adultos</h2>
+                  </div>
+                  <p className="text-sm text-neutral-400 leading-relaxed">
+                    Retos sexuales y de alcohol. Todos deben estar de acuerdo en jugar y cualquiera puede negarse a un reto, sin presión. Bebe con moderación y no conduzcas.
+                  </p>
+                </Glass>
+                <motion.div variants={item} className="mt-4">
+                  <Primary onClick={() => setGameState('setup')}>Soy mayor de 18 · Entrar</Primary>
                 </motion.div>
               </motion.div>
             )}
 
-            {/* SETUP */}
+            {/* JUGADORES */}
             {gameState === 'setup' && (
-              <motion.div key="setup" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col gap-6">
-                <motion.div variants={itemVariants} className="bg-neutral-900/60 backdrop-blur-md border border-neutral-800 p-6 rounded-2xl shadow-2xl">
-                  <h2 className="text-xl font-bold mb-4 text-center text-red-400 flex items-center justify-center gap-2">
-                    <Flame size={20} /> Registro de Jugadores
-                  </h2>
-                  <div className="flex gap-2 mb-2">
+              <motion.div key="setup" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+                <motion.div variants={item} className="flex justify-center pt-6"><Logo /></motion.div>
+                <div className="flex-1" />
+                <Glass className="p-5 pointer-events-auto">
+                  <p className="text-[11px] uppercase tracking-[0.3em] text-neutral-500 mb-3">Jugadores</p>
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       value={newPlayerName}
                       onChange={(e) => { setNewPlayerName(e.target.value); setNameError(''); }}
                       onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-                      placeholder="Nombre..."
+                      placeholder="Añade un nombre"
                       maxLength={16}
-                      className="flex-1 min-w-0 bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors text-lg"
+                      className="flex-1 min-w-0 rounded-full bg-white/[0.05] border border-white/10 px-5 py-3 placeholder:text-neutral-600 focus:outline-none focus:border-red-500/60 transition-colors"
                     />
-                    <Btn onClick={addPlayer} aria-label="Añadir jugador" className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-xl">
-                      <UserPlus size={24} />
-                    </Btn>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={addPlayer}
+                      aria-label="Añadir jugador"
+                      className="w-12 h-12 shrink-0 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors"
+                    >
+                      <Plus size={22} />
+                    </motion.button>
                   </div>
-                  {nameError && <p className="text-red-400 text-sm mb-2">{nameError}</p>}
-
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar mt-4">
+                  {nameError && <p className="text-red-400 text-xs mt-2 ml-2">{nameError}</p>}
+                  <div className="flex flex-wrap gap-2 mt-4 min-h-[2.25rem]">
                     <AnimatePresence initial={false}>
                       {players.map((p, i) => (
-                        <motion.div
+                        <motion.span
                           key={p.name}
                           layout
-                          initial={{ x: -60, opacity: 0 }}
-                          animate={{ x: 0, opacity: 1 }}
-                          exit={{ x: 60, opacity: 0 }}
+                          initial={{ opacity: 0, scale: 0.6 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.6 }}
                           transition={spring}
-                          className="flex justify-between items-center bg-neutral-800/50 p-3 rounded-lg border border-neutral-700/50"
+                          className="flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/10 pl-3.5 pr-1.5 py-1.5 text-sm"
                         >
-                          <span className="font-medium text-lg">{p.name}</span>
-                          <button onClick={() => removePlayer(i)} aria-label={`Quitar a ${p.name}`} className="text-neutral-500 hover:text-red-500">
-                            <X size={20} />
+                          {p.name}
+                          <button onClick={() => removePlayer(i)} aria-label={`Quitar a ${p.name}`} className="w-5 h-5 rounded-full flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10">
+                            <X size={12} />
                           </button>
-                        </motion.div>
+                        </motion.span>
                       ))}
                     </AnimatePresence>
-                    {players.length === 0 && <p className="text-center text-neutral-600 italic">Añade jugadores para empezar...</p>}
+                    {players.length === 0 && <span className="text-sm text-neutral-600 py-1.5">Mínimo 2 para empezar</span>}
                   </div>
-                </motion.div>
-
-                <motion.div variants={itemVariants}>
-                  {players.length >= 2 ? (
-                    <Btn onClick={startGame} className="w-full bg-gradient-to-r from-red-600 to-purple-700 hover:from-red-500 hover:to-purple-600 text-white font-bold py-4 rounded-2xl text-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] flex items-center justify-center gap-3">
-                      <Play fill="currentColor" /> COMENZAR JUEGO
-                    </Btn>
-                  ) : (
-                    <div className="text-center text-neutral-500 text-sm p-2">Necesitas al menos 2 jugadores para la tensión</div>
-                  )}
+                </Glass>
+                <motion.div variants={item} className="mt-4">
+                  <Primary onClick={startGame} disabled={players.length < 2}>
+                    {players.length < 2 ? 'Faltan jugadores' : 'Comenzar'}
+                  </Primary>
                 </motion.div>
               </motion.div>
             )}
 
             {/* JUEGO */}
             {gameState === 'playing' && currentChallenge && me && (
-              <motion.div key="playing" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col gap-3">
-
-                {/* Barra superior: turno */}
-                <motion.div variants={itemVariants} className="flex justify-between items-center bg-neutral-900/80 rounded-full px-4 py-2 border border-neutral-800">
-                  <div className="flex flex-col">
-                    <span className="text-sm text-neutral-400">Turno de:</span>
-                    <AnimatePresence mode="wait">
-                      <motion.span
-                        key={me.name}
-                        initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="text-xl font-bold text-red-400 leading-none"
-                      >{me.name}</motion.span>
-                    </AnimatePresence>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs bg-neutral-800 px-2 py-1 rounded text-neutral-300 block">Puntuación</span>
-                    <span className="text-lg font-bold text-white"><AnimatedNumber value={me.score} /> pts</span>
-                  </div>
+              <motion.div key="playing" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+                <motion.div variants={item} className="flex items-center justify-between">
+                  <Logo small />
+                  <IconBtn onClick={() => setScoresOpen(true)} aria-label="Ver puntajes"><Trophy size={18} /></IconBtn>
                 </motion.div>
 
-                {/* Tarjeta del reto */}
-                <motion.div variants={itemVariants} className="relative">
+                <motion.div variants={item} className="text-center mt-5 h-16">
+                  <p className="text-[10px] uppercase tracking-[0.4em] text-neutral-500">Turno de</p>
                   <AnimatePresence mode="wait">
-                    <motion.div
-                      key={cardKey}
-                      className="relative"
-                      initial={{ y: 140, rotate: -7, opacity: 0, scale: 0.85 }}
-                      animate={{ y: 0, rotate: 0, opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 260, damping: 20 } }}
-                      exit={{ x: -320, rotate: -14, opacity: 0, transition: { duration: 0.22, ease: 'easeIn' } }}
+                    <motion.p
+                      key={me.name}
+                      initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      exit={{ opacity: 0, y: -12, filter: 'blur(6px)' }}
+                      transition={{ type: 'tween', duration: 0.35 }}
+                      className="text-3xl font-black tracking-tight"
                     >
-                      <motion.div
-                        className={`absolute inset-0 bg-gradient-to-br ${isNegotiated ? 'from-yellow-600 to-orange-600' : 'from-red-600 to-purple-600'} rounded-3xl blur`}
-                        animate={{ opacity: [0.2, 0.45, 0.2] }}
-                        transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
-                      />
-                      <motion.div
-                        animate={isNegotiated ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="relative bg-neutral-900/80 backdrop-blur-xl border border-red-500/30 p-5 rounded-3xl shadow-2xl text-center min-h-[220px] flex flex-col justify-center items-center gap-3"
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <motion.div
-                            initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...spring, delay: 0.25 }}
-                            className={`p-2 rounded-full ${level.chip}`}
-                          >
-                            <level.Icon size={20} fill={currentChallenge.intensity === 'soft' ? 'none' : 'currentColor'} />
-                          </motion.div>
-                          {isNegotiated && (
-                            <motion.div
-                              initial={{ scale: 0 }} animate={{ scale: 1 }} transition={spring}
-                              className="flex items-center gap-1 bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/50 animate-pulse"
-                            >
-                              <AlertTriangle size={12} /> RIESGO ACTIVO
-                            </motion.div>
-                          )}
-                        </div>
-
-                        <div className="w-full">
-                          <span className="uppercase tracking-widest text-xs font-bold text-neutral-500 mb-2 block">
-                            {isNegotiated ? '⚠️ REGLAS NEGOCIADAS ⚠️' : drinkType ? 'Bebe o no' : level.label}
-                          </span>
-                          <motion.h3
-                            initial="hidden" animate="show"
-                            variants={{ show: { transition: { staggerChildren: 0.04, delayChildren: 0.3 } } }}
-                            className="text-xl md:text-2xl font-bold leading-snug break-words"
-                          >
-                            {challengeTokens().map((tok, i) => (
-                              <motion.span
-                                key={i}
-                                variants={{ hidden: { opacity: 0, y: 14, filter: 'blur(4px)' }, show: { opacity: 1, y: 0, filter: 'blur(0px)' } }}
-                                className="inline-block mr-[0.3em]"
-                              >
-                                {tok.partner && partner ? (
-                                  <span className="px-2 rounded-lg bg-red-500/25 text-red-300 border border-red-500/40">{partner.name}</span>
-                                ) : tok.t}
-                              </motion.span>
-                            ))}
-                          </motion.h3>
-                        </div>
-
-                        <div className="flex gap-4 w-full justify-center">
-                          <motion.div initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.5 }} className="flex-1 bg-neutral-950/50 py-2 rounded-lg border border-neutral-800 flex flex-col items-center">
-                            <span className="text-[10px] uppercase text-neutral-500 font-bold">Premio</span>
-                            <span className="text-green-400 font-bold text-lg">+{stakes.win} pts</span>
-                            {isNegotiated && <span className="text-[9px] text-yellow-500 leading-none">(Fijo x1.5)</span>}
-                            {partner && <span className="text-[9px] text-green-600 mt-0.5">Partner: +{Math.floor(stakes.win / 2)}</span>}
-                          </motion.div>
-                          <motion.div initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.55 }} className="flex-1 bg-neutral-950/50 py-2 rounded-lg border border-neutral-800 flex flex-col items-center">
-                            <span className="text-[10px] uppercase text-neutral-500 font-bold">Castigo</span>
-                            <span className="text-red-500 font-bold text-lg flex items-center gap-1">
-                              <Wine size={14} /> {stakes.loseSips}
-                            </span>
-                            {isNegotiated && <span className="text-[9px] text-yellow-500 leading-none">(Fijo x2)</span>}
-                            {partner && <span className="text-[9px] text-red-700 mt-0.5">Refusal: {Math.ceil(stakes.loseSips / 2)}</span>}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                    </motion.div>
+                      {me.name}
+                    </motion.p>
                   </AnimatePresence>
                 </motion.div>
 
-                {/* Acciones */}
-                <motion.div variants={itemVariants} className="flex flex-col gap-2">
-                  <Btn onClick={() => handleResult(true)} className="w-full bg-white text-black hover:bg-gray-100 py-3 rounded-xl font-bold flex flex-col items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                    <span className="flex items-center gap-2 text-lg"><Check className="text-green-600" strokeWidth={3} size={22} /> {drinkType ? 'Bebí / No aplica' : '¡Hecho!'}</span>
-                    <span className="text-[10px] opacity-60">Ganar {stakes.win} pts</span>
-                  </Btn>
-
-                  <div className={`grid gap-2 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                    <Btn onClick={() => handleResult(false)} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 p-2 rounded-xl font-bold flex flex-col items-center justify-center gap-0.5 border border-neutral-700 h-[4.5rem]">
-                      <Wine className="text-red-500" size={22} />
-                      <span className="text-sm">{drinkType ? 'Me niego' : 'Castigo'}</span>
-                      <span className="text-[10px] opacity-60 leading-tight">Beber {stakes.loseSips} sorbos</span>
-                    </Btn>
-                    {partner && (
-                      <Btn onClick={handlePartnerRefusal} className="bg-orange-900/40 hover:bg-orange-900/60 border border-orange-700/50 text-orange-200 p-2 rounded-xl font-bold flex flex-col items-center justify-center gap-0.5 h-[4.5rem]">
-                        <ShieldX className="text-orange-500" size={22} />
-                        <span className="text-sm">Se Opone</span>
-                        <span className="text-[10px] opacity-60 leading-tight">{partner.name} toma {Math.ceil(stakes.loseSips / 2)}</span>
-                      </Btn>
+                <div className="relative h-6 flex justify-center">
+                  <AnimatePresence>
+                    {toast && (
+                      <motion.p
+                        key={toast.id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        className={`absolute text-sm font-semibold ${toast.tone}`}
+                      >
+                        {toast.text}
+                      </motion.p>
                     )}
-                    <Btn
-                      onClick={handleNegotiate}
-                      disabled={isNegotiated}
-                      className={`p-2 rounded-xl font-bold flex flex-col items-center justify-center gap-0.5 border h-[4.5rem] ${isNegotiated ? 'bg-neutral-900 border-neutral-800 text-neutral-600 cursor-not-allowed' : 'bg-indigo-900/40 hover:bg-indigo-900/60 border-indigo-500/30 text-indigo-200'}`}
-                    >
-                      <Shuffle size={22} className={isNegotiated ? 'text-neutral-600' : 'text-indigo-400'} />
-                      <span className="text-sm">Negociar</span>
-                      <span className="text-[10px] opacity-60 leading-tight">{isNegotiated ? 'Usado' : 'Más riesgo / Más puntos'}</span>
-                    </Btn>
-                  </div>
-                </motion.div>
+                  </AnimatePresence>
+                </div>
 
-                {/* Ranking */}
-                <motion.div variants={itemVariants} className="bg-black/40 rounded-xl p-3 border border-neutral-800/50">
-                  <p className="text-xs text-neutral-500 uppercase font-bold mb-2 flex justify-between"><span>Ranking Actual</span><span>Sorbos</span></p>
-                  <div className="space-y-1 max-h-24 overflow-y-auto custom-scrollbar">
-                    {sorted.map((p, rank) => {
-                      const active = p.name === me.name;
-                      return (
-                        <motion.div key={p.name} layout transition={spring} className="flex items-center gap-2">
-                          <div className={`relative flex-1 h-6 rounded-full bg-neutral-800 overflow-hidden ${active ? 'ring-1 ring-red-500' : ''}`}>
-                            <motion.div
-                              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-red-700 to-purple-600"
-                              initial={false}
-                              animate={{ width: `${Math.max(3, Math.min(100, (p.score / WIN_SCORE) * 100))}%` }}
-                              transition={{ type: 'spring', stiffness: 90, damping: 16 }}
-                            />
-                            <div className="absolute inset-0 flex items-center justify-between px-3 text-xs font-bold">
-                              <span className="truncate flex items-center gap-1.5">
-                                {rank === 0 && p.score > 0 && <Crown size={12} className="text-yellow-400" />}
-                                {p.name}
-                              </span>
-                              <span className="text-red-200 tabular-nums"><AnimatedNumber value={p.score} /></span>
-                            </div>
-                          </div>
-                          <span className="w-7 text-right text-xs font-bold text-red-400 tabular-nums"><AnimatedNumber value={p.sips} /></span>
-                        </motion.div>
-                      );
-                    })}
+                {/* Zona de la carta (la carta vive en la escena 3D) */}
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="sr-only" aria-live="polite">{plainText}. Premio {stakes.win} puntos, castigo {stakes.sips} sorbos.</p>
+                  {!hasWebGL && (
+                    <div className="w-full rounded-3xl bg-neutral-900/80 border border-red-500/30 p-6 text-center">
+                      <p className="text-xs uppercase tracking-widest text-neutral-500 mb-3">{card && card.label}</p>
+                      <p className="text-xl font-bold leading-snug">{plainText}</p>
+                      <p className="text-sm text-neutral-400 mt-4">+{stakes.win} pts · {stakes.sips} sorbos</p>
+                    </div>
+                  )}
+                </div>
+
+                <motion.div variants={item} className="space-y-2.5">
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => handleResult(true)}
+                    className="w-full rounded-full bg-white text-black py-4 font-bold flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.12)]"
+                  >
+                    <Check size={20} strokeWidth={3} /> {drinkType ? 'Bebí / no aplica' : 'Hecho'}
+                  </motion.button>
+                  <div className={`grid gap-2.5 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    <Ghost onClick={() => handleResult(false)} className="py-3">
+                      <Wine size={16} className="text-red-400" /> {drinkType ? 'Me niego' : 'Castigo'}
+                    </Ghost>
+                    {partner && (
+                      <Ghost onClick={handlePartnerRefusal} className="py-3">
+                        <ShieldX size={16} className="text-orange-400" /> Se opone
+                      </Ghost>
+                    )}
+                    <Ghost onClick={handleNegotiate} disabled={isNegotiated} className="py-3">
+                      <Shuffle size={16} className="text-purple-400" /> Negociar
+                    </Ghost>
                   </div>
                 </motion.div>
               </motion.div>
             )}
 
             {/* GANADOR */}
-            {gameState === 'winner' && sorted.length > 0 && (
-              <motion.div key="winner" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col items-center text-center gap-4 relative">
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <motion.span
-                    key={i}
-                    className="absolute bottom-24 w-1.5 h-1.5 rounded-full"
-                    style={{ left: `${(i * 41) % 100}%`, background: ['#facc15', '#dc2626', '#9333ea'][i % 3] }}
-                    animate={{ y: [0, -420 - (i % 5) * 60], opacity: [0, 1, 0] }}
-                    transition={{ duration: 2.4 + (i % 4) * 0.5, repeat: Infinity, delay: (i % 9) * 0.25, ease: 'easeOut' }}
-                  />
-                ))}
-
-                <motion.div variants={itemVariants} className="relative mt-2">
-                  <div className="absolute inset-0 bg-yellow-500 blur-[60px] opacity-20 animate-pulse" />
-                  <motion.div animate={{ y: [0, -10, 0], rotate: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}>
-                    <Trophy size={96} className="text-yellow-400 drop-shadow-2xl relative z-10" />
-                  </motion.div>
-                </motion.div>
-
-                <motion.h2 variants={itemVariants} className="text-4xl font-black text-white">¡TENEMOS GANADOR!</motion.h2>
-                <motion.p variants={itemVariants} className="text-lg text-neutral-400 -mt-2">El rey/reina de la fiesta es:</motion.p>
-
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-10 py-3 rounded-full font-black text-3xl shadow-xl rotate-2"
-                >
-                  {sorted[0].name}
-                </motion.div>
-
-                {/* Podio */}
-                <motion.div variants={itemVariants} className="flex items-end justify-center gap-2 h-32 w-full">
-                  {[1, 0, 2].map((pos) => {
-                    const p = sorted[pos];
-                    if (!p) return null;
-                    const h = [100, 76, 56][pos];
-                    const tone = ['from-yellow-500 to-yellow-700', 'from-neutral-400 to-neutral-600', 'from-orange-600 to-orange-800'][pos];
-                    return (
-                      <div key={p.name} className="flex flex-col items-center w-24">
-                        <span className="text-xs font-bold truncate max-w-full mb-1 text-neutral-300">{p.name}</span>
-                        <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: h }}
-                          transition={{ type: 'spring', stiffness: 120, damping: 14, delay: 0.5 + pos * 0.2 }}
-                          className={`w-full rounded-t-xl bg-gradient-to-b ${tone} flex items-start justify-center pt-2 font-black text-2xl text-black/80`}
-                        >
-                          {pos + 1}
-                        </motion.div>
-                      </div>
-                    );
-                  })}
-                </motion.div>
-
-                <motion.div variants={itemVariants} className="w-full bg-neutral-900/80 rounded-2xl p-5 border border-neutral-800">
-                  <h3 className="text-lg font-bold mb-3 text-left flex items-center gap-2"><Wine size={18} /> Contador de Tragos (Castigos)</h3>
-                  {sorted.map((p, i) => (
-                    <motion.div
-                      key={p.name}
-                      initial={{ x: -40, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ ...spring, delay: 0.9 + i * 0.08 }}
-                      className="flex justify-between py-2 border-b border-neutral-800 last:border-0"
-                    >
-                      <span>{p.name}</span>
-                      <span className="text-red-400 font-bold">{p.sips} tragos · {p.score} pts</span>
-                    </motion.div>
-                  ))}
-                </motion.div>
-
-                <motion.div variants={itemVariants}>
-                  <Btn onClick={restartGame} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 flex items-center gap-2">
-                    <RotateCcw size={20} /> Jugar de Nuevo
-                  </Btn>
+            {gameState === 'winner' && winner && (
+              <motion.div key="winner" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+                <motion.div variants={item} className="flex justify-center"><Logo small /></motion.div>
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <motion.p variants={item} className="text-[10px] uppercase tracking-[0.5em] text-neutral-400 mb-2">Ganador</motion.p>
+                  <motion.p
+                    initial={{ opacity: 0, scale: 0.6, filter: 'blur(12px)' }}
+                    animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                    transition={{ scale: { type: 'spring', stiffness: 160, damping: 16, delay: 0.3 }, default: { type: 'tween', duration: 0.6, delay: 0.3 } }}
+                    className="text-6xl font-black italic tracking-tighter -skew-x-6 text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-purple-500 drop-shadow-[0_0_24px_rgba(220,38,38,0.5)] px-4 break-all"
+                  >
+                    {winner.name}
+                  </motion.p>
+                  <motion.p variants={item} className="text-sm text-neutral-400 mt-3">
+                    {winner.score} pts · {winner.sips} {winner.sips === 1 ? 'trago' : 'tragos'}
+                  </motion.p>
+                </div>
+                <motion.div variants={item} className="space-y-2.5">
+                  <Ghost onClick={() => setScoresOpen(true)} className="w-full py-3.5">
+                    <Trophy size={16} /> Ver puntajes
+                  </Ghost>
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={restartGame}
+                    className="w-full rounded-full bg-white text-black py-4 font-bold flex items-center justify-center gap-2"
+                  >
+                    <RotateCcw size={18} /> Jugar de nuevo
+                  </motion.button>
                 </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        <style>{`
-          .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
-          .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-          .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
-        `}</style>
+        <ScoreSheet open={scoresOpen} onClose={() => setScoresOpen(false)} players={players} />
       </div>
     </MotionConfig>
   );
