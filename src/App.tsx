@@ -2,7 +2,6 @@ import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import {
   Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ChevronUp, ChevronLeft,
   Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut, Info, Users, MapPin, Clock,
-  SlidersHorizontal, Volume2, VolumeX, Vibrate, AudioLines,
 } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import QRCode from 'qrcode';
@@ -14,7 +13,6 @@ import {
 import { hostRoom, joinRoom, normalizeCode } from './net/room.js';
 import { getBackImageURL } from './scene/cardArt.js';
 import { getClientId, saveSession, loadSession, clearSession } from './game/session.js';
-import { audio } from './audio/audio.js';
 
 // ---------- Interfaz ----------
 const spring = { type: 'spring', stiffness: 380, damping: 30 };
@@ -252,82 +250,14 @@ const useInstallPrompt = () => {
   return { prompt, standalone, clear: () => setPrompt(null) };
 };
 
-// Abre la configuración de sonido desde cualquier pantalla
-const openSettings = () => window.dispatchEvent(new Event('chuto15:settings'));
-const SettingsBtn = () => (
-  <IconBtn onClick={openSettings} aria-label="Sonido y configuración"><SlidersHorizontal size={17} /></IconBtn>
-);
-
 const Header = ({ onBack, right }) => (
   <motion.div variants={item} className="relative flex items-center justify-between h-10">
     {onBack ? <IconBtn onClick={onBack} aria-label="Volver"><ChevronLeft size={18} /></IconBtn> : <span className="w-10" />}
     <span className="absolute left-1/2 -translate-x-1/2"><Logo small /></span>
-    <span className="flex items-center gap-2">{right}<SettingsBtn /></span>
+    <span className="flex items-center gap-2">{right || <span className="w-10" />}</span>
   </motion.div>
 );
 
-// Configuración de sonido y vibración
-const Slider = ({ icon: Icon, label, value, onChange, disabled }) => (
-  <label className={`block py-2.5 ${disabled ? 'opacity-40' : ''}`}>
-    <span className="flex items-center justify-between text-sm mb-2">
-      <span className="flex items-center gap-2 text-neutral-200"><Icon size={16} className="text-neutral-500" /> {label}</span>
-      <span className="tabular-nums text-neutral-500 text-xs">{Math.round(value * 100)}%</span>
-    </span>
-    <input
-      type="range" min="0" max="100" value={Math.round(value * 100)} disabled={disabled}
-      onChange={(e) => onChange(Number(e.target.value) / 100)}
-      className="w-full accent-red-500 h-1.5 cursor-pointer"
-      aria-label={label}
-    />
-  </label>
-);
-
-const Toggle = ({ icon: Icon, label, checked, onChange }) => (
-  <button onClick={() => onChange(!checked)} role="switch" aria-checked={checked} className="w-full flex items-center justify-between py-3 text-sm">
-    <span className="flex items-center gap-2 text-neutral-200"><Icon size={16} className="text-neutral-500" /> {label}</span>
-    <span className={`w-11 h-6 rounded-full p-0.5 transition-colors ${checked ? 'bg-gradient-to-r from-red-600 to-purple-600' : 'bg-white/10'}`}>
-      <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
-    </span>
-  </button>
-);
-
-const SettingsSheet = ({ open, onClose }) => {
-  const [st, setSt] = useState(audio.get());
-  useEffect(() => audio.subscribe((v) => setSt({ ...v })), []);
-  const set = (partial) => audio.update(partial);
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-          <motion.div
-            role="dialog" aria-label="Sonido y configuración"
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-            className="relative w-full max-w-md rounded-t-[2rem] bg-[#111014]/95 border-t border-white/10 px-6 pt-3 pb-[max(env(safe-area-inset-bottom),1.5rem)]"
-          >
-            <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-5" />
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold">Sonido</h2>
-              <IconBtn onClick={onClose} aria-label="Cerrar"><X size={18} /></IconBtn>
-            </div>
-            <Toggle icon={st.muted ? VolumeX : Volume2} label="Silenciar todo" checked={st.muted} onChange={(v) => set({ muted: v })} />
-            <div className="border-t border-white/5 my-1" />
-            <Slider icon={Volume2} label="Volumen general" value={st.master} disabled={st.muted} onChange={(v) => set({ master: v })} />
-            <Slider
-              icon={AudioLines} label="Efectos" value={st.sfx} disabled={st.muted}
-              onChange={(v) => { set({ sfx: v }); audio.play('tap'); }}
-            />
-            <div className="border-t border-white/5 my-1" />
-            <Toggle icon={Vibrate} label="Vibración" checked={st.vibration} onChange={(v) => { set({ vibration: v }); if (v) audio.vibrate(60); }} />
-            <Ghost onClick={() => audio.play('done')} className="w-full py-3 mt-3"><AudioLines size={15} /> Probar efectos</Ghost>
-            <p className="text-[11px] text-neutral-600 text-center mt-4">Efectos generados en vivo · se guarda en este teléfono</p>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
 
 const Title = ({ kicker, children }) => (
   <motion.div variants={item} className="text-center mt-6">
@@ -359,29 +289,7 @@ const Option = ({ active, onClick, children, className = '' }) => (
 const App = () => {
   const [screen, setScreen] = useState('consent');
   const [deckId, setDeckId] = useState('chuto15');
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // ---------- Sonido ----------
-  // El audio se activa con el primer toque (los navegadores lo exigen) y suena un "tap" en cada botón
-  useEffect(() => {
-    const onDown = () => audio.unlock();
-    const onClick = (e) => {
-      const b = e.target.closest && e.target.closest('button');
-      if (b && !b.disabled) audio.play('tap');
-    };
-    const onSettings = () => setSettingsOpen(true);
-    const onVis = () => audio.setHidden(document.visibilityState === 'hidden');
-    window.addEventListener('pointerdown', onDown, true);
-    window.addEventListener('click', onClick, true);
-    window.addEventListener('chuto15:settings', onSettings);
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      window.removeEventListener('pointerdown', onDown, true);
-      window.removeEventListener('click', onClick, true);
-      window.removeEventListener('chuto15:settings', onSettings);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, []);
   const [localNames, setLocalNames] = useState([]);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [nameError, setNameError] = useState('');
@@ -630,38 +538,19 @@ const App = () => {
 
   useEffect(() => () => leaveRoom(), []);
 
-  // Efectos de sonido según los cambios del juego
+  // Vibración (Android) en los momentos clave: resultado del turno y ganador
   const prevGame = useRef(null);
   useEffect(() => {
     const prev = prevGame.current;
     prevGame.current = game;
-    if (!game || !prev) return;
-    if (game.phase === 'winner' && prev.phase !== 'winner') {
-      audio.play('win');
-      audio.vibrate([60, 40, 60, 40, 220]);
-      return;
-    }
-    if (game.phase === 'lobby' && prev.phase === 'lobby' && game.players.length > prev.players.length) audio.play('join');
-    if (game.cardKey !== prev.cardKey) {
-      if (game.exitType === 'swap') audio.play('negotiate');
-      else {
-        if (game.exitType === 'throw') audio.play('throw');
-        setTimeout(() => audio.play('draw'), game.exitType === 'throw' ? 260 : 120);
+    if (!game || !prev || !navigator.vibrate) return;
+    try {
+      if (game.phase === 'winner' && prev.phase !== 'winner') navigator.vibrate([60, 40, 60, 40, 220]);
+      else if (game.verdict && (!prev.verdict || prev.verdict.key !== game.verdict.key)) {
+        navigator.vibrate(game.verdict.kind === 'done' ? [30, 30, 80] : game.verdict.kind === 'fail' ? [200, 60, 200] : [40, 30, 40]);
       }
-    }
-    if (game.verdict && (!prev.verdict || prev.verdict.key !== game.verdict.key)) {
-      audio.play(game.verdict.kind);
-      audio.vibrate(game.verdict.kind === 'done' ? [30, 30, 80] : game.verdict.kind === 'fail' ? [200, 60, 200] : [40, 30, 40]);
-    }
-    if (game.revealed && !prev.revealed) audio.play('reveal');
+    } catch {}
   }, [game]);
-
-  // Barrido al cambiar de mazo
-  const firstDeck = useRef(true);
-  useEffect(() => {
-    if (firstDeck.current) { firstDeck.current = false; return; }
-    if (screen === 'deck') audio.play('swoosh');
-  }, [deckId]);
 
   // Guardar la partida en el teléfono (para retomarla si la app se cierra)
   useEffect(() => {
@@ -1193,7 +1082,6 @@ const App = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     {net && net.code && <span className="text-xs font-bold tracking-[0.2em] text-neutral-500 border border-white/10 rounded-full px-3 py-1.5">{net.code}</span>}
-                    <SettingsBtn />
                     <IconBtn onClick={() => setScoresOpen(true)} aria-label="Ver puntajes"><Trophy size={18} /></IconBtn>
                   </div>
                 </motion.div>
@@ -1400,7 +1288,6 @@ const App = () => {
           </AnimatePresence>
         </div>
 
-        <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <ScoreSheet open={scoresOpen} onClose={() => setScoresOpen(false)} players={game ? game.players : []} />
 
         {/* Aviso de reconexión */}
