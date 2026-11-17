@@ -208,12 +208,45 @@ const ActiveCard = ({ data, verdict, exit, delay, view, drag, onGone }) => {
 };
 
 // ---------- Anillo de cartas (inicio y ganador) ----------
+// ---------- Vitrina: el reverso del mazo elegido, grande y flotando ----------
+const Showcase = ({ active, deckId, view }) => {
+  const g = useRef();
+  const st = useRef({ spin: 0, vis: 0, deck: deckId });
+  useFrame((state, dt) => {
+    const s = st.current;
+    if (s.deck !== deckId) {
+      s.deck = deckId;
+      s.spin = Math.PI * 2; // gira una vuelta completa al cambiar de mazo
+    }
+    easing.damp(s, 'spin', 0, 0.3, dt);
+    easing.damp(s, 'vis', active ? 1 : 0, 0.3, dt);
+    const t = state.clock.elapsedTime;
+    const obj = g.current;
+    obj.visible = s.vis > 0.01;
+    // en pantallas más bajas (menos alargadas) la carta se achica para no tocar el título
+    const frac = view.height / view.width > 1.9 ? 0.4 : 0.33;
+    const fit = Math.min((view.height * frac) / CARD_H, (view.width * 0.62) / CARD_W, 1);
+    obj.scale.setScalar(Math.max(0.0001, fit * (0.6 + 0.4 * s.vis) * (1 - Math.sin(s.spin / 2) * 0.12)));
+    obj.position.set(0, view.height * (frac > 0.35 ? 0.075 : 0.055) + Math.sin(t * 1.1) * 0.05 - (1 - s.vis) * 0.6, 0.6);
+    obj.rotation.set(
+      -state.pointer.y * 0.16 + Math.sin(t * 0.6) * 0.04,
+      s.spin + state.pointer.x * 0.32 + Math.sin(t * 0.45) * 0.09,
+      Math.sin(t * 0.5) * 0.02,
+    );
+  });
+  return (
+    <group ref={g} visible={false}>
+      <CardMesh deckId={deckId} accent={themeOf(deckId).ring[0]} glow={1.8} />
+    </group>
+  );
+};
+
 const RING_COUNT = 12;
 const CardRing = ({ mode, view, deckId }) => {
   const g = useRef();
   const speed = useRef(0.15);
   useFrame((state, dt) => {
-    const show = mode !== 'playing';
+    const show = mode === 'intro' || mode === 'winner';
     const winner = mode === 'winner';
     easing.damp(g.current.scale, 'x', show ? 1 : 0.001, 0.4, dt);
     g.current.scale.y = g.current.scale.z = g.current.scale.x;
@@ -301,6 +334,7 @@ const World = ({ mode, deckId, card, verdict, exitType, drag }) => {
 
       <Deck visible={mode === 'playing'} raised={deckUp} deckId={deckId} />
       <CardRing mode={mode} view={view} deckId={deckId} />
+      <Showcase active={mode === 'showcase'} deckId={deckId} view={view} />
       {cards.map((c) => (
         <ActiveCard
           key={c.key}

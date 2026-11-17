@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import {
   Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ChevronUp, ChevronLeft,
-  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut,
+  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut, ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import QRCode from 'qrcode';
@@ -231,6 +231,13 @@ const App = () => {
   // Arrastre de la carta (compartido con la escena 3D sin re-renderizar)
   const drag = useRef({ active: false, x: 0, y: 0, throw: null });
   const dragStart = useRef(null);
+
+  // Cambiar de mazo con flechas o deslizando sobre la carta
+  const deckSwipe = useRef(null);
+  const stepDeck = (dir) => {
+    const i = DECK_IDS.indexOf(deckId);
+    setDeckId(DECK_IDS[(i + dir + DECK_IDS.length) % DECK_IDS.length]);
+  };
 
   const deckImages = useMemo(() => Object.fromEntries(DECK_IDS.map((id) => [id, getBackImageURL(id)])), []);
 
@@ -470,7 +477,7 @@ const App = () => {
 
   const sceneDeck = game ? game.deckId : deckId;
   const netError = !!(net && net.status === 'error');
-  const sceneMode = screen === 'game' && !netError && phase === 'playing' ? 'playing' : screen === 'game' && !netError && phase === 'winner' ? 'winner' : 'intro';
+  const sceneMode = screen === 'deck' ? 'showcase' : screen === 'game' && !netError && phase === 'playing' ? 'playing' : screen === 'game' && !netError && phase === 'winner' ? 'winner' : 'intro';
 
   const backToSetup = () => {
     if (mode === 'local') {
@@ -562,26 +569,55 @@ const App = () => {
                   ) : null}
                 />
                 <Title kicker="Paso 1">Elige un mazo</Title>
-                <div className="flex-1 min-h-0 flex flex-col justify-end mt-4">
-                  <div className="overflow-y-auto min-h-0 space-y-2 pointer-events-auto -mx-1 px-1 py-1">
-                    {DECK_IDS.map((id) => {
-                      const d = DECKS[id];
-                      const lim = playerLimits(id);
-                      return (
-                        <Option key={id} active={deckId === id} onClick={() => setDeckId(id)} className="p-2.5 flex items-center gap-3.5">
-                          <img src={deckImages[id]} alt="" className="w-11 h-[3.85rem] rounded-md object-cover shadow-lg shrink-0" />
-                          <span className="flex-1 min-w-0">
-                            <span className="block font-bold leading-tight">{d.name}</span>
-                            {d.kana && <span className="block text-[11px] leading-tight text-pink-200/90">{d.kana} · {d.kanji}</span>}
-                            <span className="block text-xs text-neutral-500 mt-0.5 truncate">
-                              {d.subtitle} · {d.challenges.length} cartas{lim.max === 2 ? ' · para 2' : ''}
-                            </span>
-                          </span>
-                          <span className={`w-4 h-4 rounded-full border-2 shrink-0 mr-1 ${deckId === id ? 'border-red-500 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.7)]' : 'border-white/20'}`} />
-                        </Option>
-                      );
-                    })}
-                  </div>
+
+                {/* Zona de la carta en vitrina: deslizar para cambiar de mazo */}
+                <div
+                  className="flex-1 min-h-[9rem] pointer-events-auto touch-pan-y"
+                  onPointerDown={(e) => { deckSwipe.current = e.clientX; }}
+                  onPointerUp={(e) => {
+                    if (deckSwipe.current == null) return;
+                    const dx = e.clientX - deckSwipe.current;
+                    deckSwipe.current = null;
+                    if (Math.abs(dx) > 45) stepDeck(dx < 0 ? 1 : -1);
+                  }}
+                />
+
+                {/* Nombre del mazo con flechas */}
+                <div className="flex items-center justify-between gap-2">
+                  <IconBtn onClick={() => stepDeck(-1)} aria-label="Mazo anterior"><ChevronLeft size={18} /></IconBtn>
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={deckId}
+                      initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+                      transition={{ type: 'tween', duration: 0.22 }}
+                      className="text-center min-w-0"
+                    >
+                      <p className="text-2xl font-black tracking-tight leading-tight">{DECKS[deckId].name}</p>
+                      {DECKS[deckId].kana && <p className="text-xs text-pink-200/90">{DECKS[deckId].kana} · {DECKS[deckId].kanji}</p>}
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        {DECKS[deckId].subtitle} · {DECKS[deckId].challenges.length} cartas{playerLimits(deckId).max === 2 ? ' · para 2' : ''}
+                      </p>
+                    </motion.div>
+                  </AnimatePresence>
+                  <IconBtn onClick={() => stepDeck(1)} aria-label="Mazo siguiente"><ChevronRight size={18} /></IconBtn>
+                </div>
+
+                {/* Tira de miniaturas */}
+                <div className="mt-4 -mx-5 px-5 flex gap-2.5 overflow-x-auto pointer-events-auto pb-1 justify-start sm:justify-center [scrollbar-width:none]">
+                  {DECK_IDS.map((id) => (
+                    <motion.button
+                      key={id}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => setDeckId(id)}
+                      aria-label={DECKS[id].name}
+                      aria-pressed={deckId === id}
+                      className={`shrink-0 rounded-lg overflow-hidden transition-all duration-200 ${deckId === id ? 'ring-2 ring-red-500 shadow-[0_0_16px_rgba(239,68,68,.6)] opacity-100 -translate-y-1' : 'opacity-50 hover:opacity-80'}`}
+                    >
+                      <img src={deckImages[id]} alt="" className="w-11 h-[3.85rem] object-cover" />
+                    </motion.button>
+                  ))}
                 </div>
                 <motion.div variants={item} className="mt-4">
                   <Primary onClick={() => setScreen('mode')}>Continuar</Primary>
