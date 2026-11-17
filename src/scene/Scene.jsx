@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { MeshReflectorMaterial, RoundedBox, Sparkles } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { easing } from 'maath';
-import { CARD_W, CARD_H, CARD_R, ACCENTS, getBackTexture, makeFaceTexture } from './cardTextures.js';
+import { CARD_W, CARD_H, CARD_R, ACCENTS, VERDICT_COLORS, getBackTexture, makeFaceTexture, makeVerdictTexture } from './cardTextures.js';
 
 // ---------- Constantes de la escena ----------
 const FLOOR_Y = -2.6;
@@ -33,7 +33,7 @@ const EXITS = {
 // Grosor del canto luminoso que asoma alrededor de la carta
 const RIM = 0.012;
 // flipBack: gira el reverso 180° para que se lea derecho cuando la carta está tumbada
-const CardMesh = ({ faceTexture, accent = '#ef4444', glow = 1.6, flipBack = false }) => {
+const CardMesh = ({ faceTexture, verdictTexture = null, accent = '#ef4444', glow = 1.6, flipBack = false }) => {
   const back = getBackTexture();
   const edge = useMemo(() => new THREE.Color(accent).multiplyScalar(glow), [accent, glow]);
   return (
@@ -49,6 +49,13 @@ const CardMesh = ({ faceTexture, accent = '#ef4444', glow = 1.6, flipBack = fals
         <planeGeometry args={[CARD_W, CARD_H]} />
         <meshBasicMaterial map={back} color="#e2e2e2" toneMapped={false} transparent />
       </mesh>
+      {verdictTexture && (
+        // Reverso con el veredicto (se lee derecho al girar la carta sobre el eje vertical)
+        <mesh position={[0, 0, -0.0185]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[CARD_W, CARD_H]} />
+          <meshBasicMaterial map={verdictTexture} color="#e2e2e2" toneMapped={false} transparent />
+        </mesh>
+      )}
     </group>
   );
 };
@@ -89,10 +96,15 @@ const tmpV = new THREE.Vector3();
 const tmpQ = new THREE.Quaternion();
 const tmpE = new THREE.Euler();
 
-const ActiveCard = ({ data, exit, delay, view, onGone }) => {
+const ActiveCard = ({ data, verdict, exit, delay, view, onGone }) => {
   const texture = useMemo(() => makeFaceTexture(data), [data]);
   useEffect(() => () => texture.dispose(), [texture]);
-  const accent = data.negotiated ? ACCENTS.negotiated : ACCENTS[data.intensity];
+  const verdictTexture = useMemo(() => (verdict ? makeVerdictTexture(verdict) : null), [verdict]);
+  useEffect(() => () => verdictTexture && verdictTexture.dispose(), [verdictTexture]);
+  const accent = verdict
+    ? VERDICT_COLORS[verdict.kind]
+    : data.negotiated ? ACCENTS.negotiated : ACCENTS[data.intensity];
+  const flip = useRef({ current: 0 });
 
   const g = useRef();
   const s = useRef({ start: null, exitStart: null, gone: false, shake: data.negotiated ? 1 : 0 });
@@ -115,14 +127,18 @@ const ActiveCard = ({ data, exit, delay, view, onGone }) => {
     // Inclinación siguiendo el puntero + leve respiración
     st.shake = Math.max(0, st.shake - dt * 1.4);
     const wob = Math.sin(t * 38) * 0.12 * st.shake;
+    // Giro de 180° para mostrar el veredicto
+    easing.damp(flip.current, 'current', verdict ? Math.PI : 0, 0.28, dt);
+    const f = flip.current.current;
     tmpE.set(
       -state.pointer.y * 0.18 + Math.sin(t * 0.7) * 0.03,
-      state.pointer.x * 0.25 + Math.sin(t * 0.5) * 0.04,
+      state.pointer.x * 0.25 + Math.sin(t * 0.5) * 0.04 + f,
       wob,
     );
     tmpQ.setFromEuler(tmpE);
     baseQuat.current.slerpQuaternions(DECK_QUAT, tmpQ, e);
-    let scale = THREE.MathUtils.lerp(DECK_SCALE, view.scale, e);
+    // pequeño "salto" hacia la cámara durante el giro
+    let scale = THREE.MathUtils.lerp(DECK_SCALE, view.scale, e) * (1 + Math.sin(f) * 0.06);
 
     const obj = g.current;
     obj.visible = t >= st.start;
@@ -159,7 +175,7 @@ const ActiveCard = ({ data, exit, delay, view, onGone }) => {
 
   return (
     <group ref={g} visible={false}>
-      <CardMesh flipBack faceTexture={texture} accent={accent} glow={2} />
+      <CardMesh flipBack faceTexture={texture} verdictTexture={verdictTexture} accent={accent} glow={2} />
     </group>
   );
 };
@@ -221,19 +237,23 @@ const useCardView = () => {
   return { width: v.width, height: v.height, scale, y: v.height * 0.035 };
 };
 
-const World = ({ mode, card, exitType }) => {
+const World = ({ mode, card, verdict, exitType }) => {
   const view = useCardView();
   const [cards, setCards] = useState([]);
   const [deckUp, setDeckUp] = useState(false);
   const exitRef = useRef(exitType);
   exitRef.current = exitType;
+  // Último veredicto mostrado: la carta sigue dada vuelta mientras se va
+  const lastVerdict = useRef(null);
+  if (verdict) lastVerdict.current = verdict;
 
   useEffect(() => {
     const exit = exitRef.current || 'done';
     // El mazo sube primero; la carta sale cuando ya está arriba
     const delay = exit === 'swap' ? 0.65 : 0.4;
     setCards((cs) => {
-      const old = cs.map((c) => (c.exit ? c : { ...c, exit }));
+      const lv = lastVerdict.current;
+      const old = cs.map((c) => (c.exit ? c : { ...c, exit, verdict: lv && lv.key === c.key ? lv : null }));
       if (!card) return old;
       return [...old, { key: card.key, data: card, exit: null, delay }];
     });
@@ -258,6 +278,7 @@ const World = ({ mode, card, exitType }) => {
         <ActiveCard
           key={c.key}
           data={c.data}
+          verdict={c.exit ? c.verdict : verdict && verdict.key === c.key ? verdict : null}
           exit={c.exit}
           delay={c.delay}
           view={view}
@@ -293,14 +314,14 @@ const World = ({ mode, card, exitType }) => {
   );
 };
 
-const Scene = ({ mode, card, exitType }) => (
+const Scene = ({ mode, card, verdict, exitType }) => (
   <Canvas
     className="!fixed inset-0"
     dpr={[1, 2]}
     gl={{ antialias: true, powerPreference: 'high-performance' }}
     camera={{ position: [0, 0.4, 8], fov: 38 }}
   >
-    <World mode={mode} card={card} exitType={exitType} />
+    <World mode={mode} card={card} verdict={verdict} exitType={exitType} />
   </Canvas>
 );
 

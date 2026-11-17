@@ -273,3 +273,149 @@ export function makeFaceTexture(card) {
 
   return toTexture(c);
 }
+
+// ---------- Veredicto (reverso de la carta al resolver el turno) ----------
+// Íconos en caja de 24x24 (mismo trazo que lucide)
+const ICONS = {
+  check: ['M20 6 9 17l-5-5'],
+  wine: ['M8 22h8', 'M7 10h10', 'M12 15v7', 'M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z'],
+  shield: [
+    'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z',
+    'm14.5 9.5-5 5',
+    'm9.5 9.5 5 5',
+  ],
+  star: [(() => {
+    let d = '';
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 ? 4.4 : 10;
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      d += `${i ? 'L' : 'M'}${(12 + r * Math.cos(a)).toFixed(2)} ${(12.6 + r * Math.sin(a)).toFixed(2)}`;
+    }
+    return `${d}Z`;
+  })()],
+  crown: ['M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z', 'M5 21h14'],
+};
+
+function drawIcon(ctx, name, cx, cy, size, color, width = 2) {
+  ctx.save();
+  ctx.translate(cx - size / 2, cy - size / 2);
+  ctx.scale(size / 24, size / 24);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const d of ICONS[name]) ctx.stroke(new Path2D(d));
+  ctx.restore();
+}
+
+function fitText(ctx, text, maxW, weight, size) {
+  let s = size;
+  ctx.font = `${weight} ${s}px ${FONT}`;
+  while (s > 18 && ctx.measureText(text).width > maxW) {
+    s -= 2;
+    ctx.font = `${weight} ${s}px ${FONT}`;
+  }
+  return s;
+}
+
+export const VERDICT_COLORS = { done: '#4ade80', fail: '#f87171', refuse: '#fb923c' };
+
+/*
+  v = {
+    kind: 'done' | 'fail' | 'refuse',
+    label, title,
+    rows: [{ icon: 'star' | 'wine', name, amount, total, color }],
+    note,            // texto pequeño opcional (p. ej. apuesta negociada)
+    winnerName,      // si alguien llegó a la meta
+  }
+*/
+export function makeVerdictTexture(v) {
+  const [c, ctx] = makeCanvas(2);
+  const acc = VERDICT_COLORS[v.kind];
+
+  ctx.fillStyle = '#0f0e12';
+  ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W / 2, 170, 0, W / 2, 170, H * 0.75);
+  glow.addColorStop(0, rgba(acc, 0.22));
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = rgba(acc, 0.6);
+  ctx.lineWidth = 2.5;
+  roundRect(ctx, 26, 26, W - 52, H - 52, R - 14);
+  ctx.stroke();
+
+  // Ícono principal
+  const iconName = v.kind === 'done' ? 'check' : v.kind === 'fail' ? 'wine' : 'shield';
+  ctx.beginPath();
+  ctx.arc(W / 2, 170, 66, 0, Math.PI * 2);
+  ctx.fillStyle = rgba(acc, 0.12);
+  ctx.fill();
+  ctx.strokeStyle = rgba(acc, 0.55);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  drawIcon(ctx, iconName, W / 2, 170, 64, acc, 2.2);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = acc;
+  ctx.font = `700 21px ${FONT}`;
+  spaced(ctx, 6);
+  ctx.fillText(v.label.toUpperCase(), W / 2 + 3, 278);
+  spaced(ctx, 0);
+
+  ctx.fillStyle = '#ffffff';
+  fitText(ctx, v.title, W - 140, 800, 50);
+  ctx.fillText(v.title, W / 2, 332);
+
+  // Filas: quién gana y quién bebe
+  const rowH = 128;
+  const startY = 420 + Math.max(0, (3 - v.rows.length) * rowH) / 2;
+  v.rows.forEach((row, i) => {
+    const y = startY + i * rowH;
+    const col = row.color;
+
+    ctx.fillStyle = 'rgba(255,255,255,.035)';
+    roundRect(ctx, 56, y, W - 112, rowH - 20, 26);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.07)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    const cy = y + (rowH - 20) / 2;
+    ctx.beginPath();
+    ctx.arc(116, cy, 32, 0, Math.PI * 2);
+    ctx.fillStyle = rgba(col, 0.14);
+    ctx.fill();
+    drawIcon(ctx, row.icon, 116, cy, 34, col, 2.2);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    fitText(ctx, row.name, 250, 700, 36);
+    ctx.fillText(row.name, 168, cy - 15);
+    ctx.font = `500 20px ${FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,.42)';
+    ctx.fillText(row.total, 168, cy + 22);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = col;
+    fitText(ctx, row.amount, 190, 800, 40);
+    ctx.fillText(row.amount, W - 88, cy + 1);
+  });
+
+  // Pie
+  ctx.textAlign = 'center';
+  if (v.winnerName) {
+    drawIcon(ctx, 'crown', W / 2, H - 132, 34, '#facc15', 2);
+    ctx.fillStyle = '#facc15';
+    fitText(ctx, `${v.winnerName} llegó a la meta`, W - 160, 700, 26);
+    ctx.fillText(`${v.winnerName} llegó a la meta`, W / 2, H - 88);
+  } else if (v.note) {
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.font = `500 20px ${FONT}`;
+    ctx.fillText(v.note, W / 2, H - 88);
+  }
+
+  return toTexture(c);
+}

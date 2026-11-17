@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, Suspense } from 'react';
-import { Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX } from 'lucide-react';
+import { Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 
 const WIN_SCORE = 400;
@@ -371,6 +371,7 @@ const App = () => {
   const [exitType, setExitType] = useState('done');
   const [toast, setToast] = useState(null);
   const [scoresOpen, setScoresOpen] = useState(false);
+  const [verdict, setVerdict] = useState(null);
 
   // Multiplicador de probabilidad por reto (baja a 1/4 cada vez que sale)
   const repeatMultipliers = useRef(BASE_CHALLENGES.map(() => 1));
@@ -457,36 +458,67 @@ const App = () => {
       ? { points: negotiatedStakes.points, sips: negotiatedStakes.sips }
       : { points: currentChallenge.points, sips: calculateSips(currentChallenge) };
 
-  // Guarda los jugadores y, o termina la partida, o pasa el turno
-  const finishTurn = (updated, exit) => {
-    setExitType(exit);
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  // Resuelve el turno: actualiza puntajes y arma el veredicto que se muestra
+  // en el reverso de la carta. El turno avanza recién con "Siguiente".
+  const resolveTurn = (updated, kind, label, title, rows) => {
+    const leaders = updated.filter((p) => p.score >= WIN_SCORE).sort((x, y) => y.score - x.score);
     setPlayers(updated);
-    if (updated.some((p) => p.score >= WIN_SCORE)) {
+    setVerdict({
+      key: cardKey,
+      kind,
+      label,
+      title,
+      rows,
+      note: isNegotiated ? 'Apuesta negociada · premio ×1.5 · castigo ×2' : null,
+      winnerName: leaders.length ? leaders[0].name : null,
+      gameOver: leaders.length > 0,
+    });
+  };
+
+  const continueTurn = () => {
+    if (!verdict) return;
+    const { kind, gameOver } = verdict;
+    setVerdict(null);
+    setExitType(kind);
+    if (gameOver) {
       setGameState('winner');
       return;
     }
-    const nextIndex = (currentPlayerIndex + 1) % updated.length;
+    const nextIndex = (currentPlayerIndex + 1) % players.length;
     setCurrentPlayerIndex(nextIndex);
-    pickChallenge(nextIndex, updated);
+    pickChallenge(nextIndex, players);
   };
 
+  const pointsRow = (p, amount) => ({
+    icon: 'star', name: p.name, amount: `+${amount} pts`, total: `${p.score} pts en total`, color: '#4ade80',
+  });
+  const sipsRow = (p, amount) => ({
+    icon: 'wine', name: p.name, amount: `Bebe ${amount}`, total: `${plural(p.sips, 'sorbo', 'sorbos')} en total`, color: '#f87171',
+  });
+
   const handlePartnerRefusal = () => {
+    if (verdict) return;
     const { points, sips } = getCurrentStakes();
     const mine = Math.floor(points / 2);
     const theirs = Math.ceil(sips / 2);
-    const partner = players[partnerPlayerIndex];
     const updated = players.map((p, i) => {
       if (i === currentPlayerIndex) return { ...p, score: p.score + mine };
       if (i === partnerPlayerIndex) return { ...p, sips: p.sips + theirs };
       return p;
     });
-    showToast(`${partner.name} se opone · bebe ${theirs}`, 'text-orange-300');
-    finishTurn(updated, 'refuse');
+    const me = updated[currentPlayerIndex];
+    const partner = updated[partnerPlayerIndex];
+    resolveTurn(updated, 'refuse', 'Se opone', `${partner.name} dijo que no`, [
+      pointsRow(me, mine),
+      sipsRow(partner, theirs),
+    ]);
   };
 
   const handleResult = (success) => {
+    if (verdict) return;
     const { points, sips } = getCurrentStakes();
-    const me = players[currentPlayerIndex];
     const updated = players.map((p, i) => {
       if (success) {
         if (i === currentPlayerIndex) return { ...p, score: p.score + points };
@@ -496,13 +528,20 @@ const App = () => {
       }
       return p;
     });
-    if (success) showToast(`${me.name} +${points} pts`, 'text-green-400');
-    else showToast(`${me.name} bebe ${sips}`, 'text-red-400');
-    finishTurn(updated, success ? 'done' : 'fail');
+    const me = updated[currentPlayerIndex];
+    const drink = isDrinkChallenge(currentChallenge);
+    if (success) {
+      const rows = [pointsRow(me, points)];
+      if (partnerPlayerIndex !== null) rows.push(pointsRow(updated[partnerPlayerIndex], Math.floor(points / 2)));
+      resolveTurn(updated, 'done', 'Reto cumplido', drink ? `¡Salud, ${me.name}!` : `¡Bien hecho, ${me.name}!`, rows);
+    } else {
+      resolveTurn(updated, 'fail', 'Castigo', drink ? `${me.name} se negó` : `${me.name} no se atrevió`, [sipsRow(me, sips)]);
+    }
   };
 
   const restartGame = () => {
     setScoresOpen(false);
+    setVerdict(null);
     setPlayers(players.map((p) => ({ ...p, score: 0, sips: 0 })));
     setGameState('setup');
     setCurrentPlayerIndex(0);
@@ -558,7 +597,7 @@ const App = () => {
       <div className="fixed inset-0 bg-[#0a0a0a] text-white overflow-hidden">
         {hasWebGL && (
           <Suspense fallback={null}>
-            <Scene mode={sceneMode} card={card} exitType={exitType} />
+            <Scene mode={sceneMode} card={card} verdict={verdict} exitType={exitType} />
           </Suspense>
         )}
 
@@ -684,8 +723,27 @@ const App = () => {
 
                 {/* Zona de la carta (la carta vive en la escena 3D) */}
                 <div className="flex-1 flex items-center justify-center">
-                  <p className="sr-only" aria-live="polite">{plainText}. Premio {stakes.win} puntos, castigo {stakes.sips} sorbos.</p>
-                  {!hasWebGL && (
+                  <p className="sr-only" aria-live="polite">
+                    {verdict
+                      ? `${verdict.title}. ${verdict.rows.map((r) => `${r.name}: ${r.amount}`).join('. ')}.`
+                      : `${plainText}. Premio ${stakes.win} puntos, castigo ${stakes.sips} sorbos.`}
+                  </p>
+                  {!hasWebGL && verdict && (
+                    <div className="w-full rounded-3xl bg-neutral-900/80 border border-white/10 p-6">
+                      <p className="text-xs uppercase tracking-widest text-neutral-500 text-center mb-1">{verdict.label}</p>
+                      <p className="text-xl font-bold text-center mb-4">{verdict.title}</p>
+                      {verdict.rows.map((r) => (
+                        <div key={r.name + r.amount} className="flex items-center justify-between py-2 border-t border-white/5">
+                          <span className="flex items-center gap-2">
+                            {r.icon === 'wine' ? <Wine size={16} className="text-red-400" /> : <Star size={16} className="text-green-400" />}
+                            {r.name}
+                          </span>
+                          <span className="font-bold" style={{ color: r.color }}>{r.amount}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!hasWebGL && !verdict && (
                     <div className="w-full rounded-3xl bg-neutral-900/80 border border-red-500/30 p-6 text-center">
                       <p className="text-xs uppercase tracking-widest text-neutral-500 mb-3">{card && card.label}</p>
                       <p className="text-xl font-bold leading-snug">{plainText}</p>
@@ -694,7 +752,27 @@ const App = () => {
                   )}
                 </div>
 
-                <motion.div variants={item} className="space-y-2.5">
+                <motion.div variants={item} className="relative">
+                <AnimatePresence mode="wait" initial={false}>
+                {verdict ? (
+                  <motion.div key="next" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }} className="space-y-2.5">
+                    {verdict.gameOver ? (
+                      <Primary onClick={continueTurn} className="flex items-center justify-center gap-2">
+                        <Trophy size={18} /> Ver ganador
+                      </Primary>
+                    ) : (
+                      <motion.button
+                        whileTap={{ scale: 0.96 }}
+                        onClick={continueTurn}
+                        className="w-full rounded-full bg-white text-black py-4 font-bold flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.12)]"
+                      >
+                        Siguiente turno · {players[(currentPlayerIndex + 1) % players.length].name} <ArrowRight size={18} />
+                      </motion.button>
+                    )}
+                    <div className="h-[2.875rem]" />
+                  </motion.div>
+                ) : (
+                <motion.div key="actions" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }} className="space-y-2.5">
                   <motion.button
                     whileTap={{ scale: 0.96 }}
                     onClick={() => handleResult(true)}
@@ -715,6 +793,9 @@ const App = () => {
                       <Shuffle size={16} className="text-purple-400" /> Negociar
                     </Ghost>
                   </div>
+                </motion.div>
+                )}
+                </AnimatePresence>
                 </motion.div>
               </motion.div>
             )}
