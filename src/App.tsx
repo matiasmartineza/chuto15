@@ -1,17 +1,18 @@
 import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import {
   Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ChevronUp, ChevronLeft,
-  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut,
+  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut, Info, Users, MapPin, Clock,
 } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import QRCode from 'qrcode';
-import { DECKS, DECK_IDS, playerLimits } from './game/decks.js';
+import { DECKS, DECK_IDS, METERS, playerLimits } from './game/decks.js';
 import {
   WIN_SCORE, canAct, reduce, createLobby, startGame, cardView, currentChallenge, getStakes,
   isDrinkChallenge, plainChallengeText, isTrivia,
 } from './game/engine.js';
 import { hostRoom, joinRoom, normalizeCode } from './net/room.js';
 import { getBackImageURL } from './scene/cardArt.js';
+import { getClientId, saveSession, loadSession, clearSession } from './game/session.js';
 
 // ---------- Interfaz ----------
 const spring = { type: 'spring', stiffness: 380, damping: 30 };
@@ -135,6 +136,92 @@ const ScoreSheet = ({ open, onClose, players }) => {
 };
 
 
+
+// Ficha del mazo: en qué consiste, para quién, y medidores para ayudar a elegir
+const Meter = ({ label, hint, value }) => (
+  <div className="flex items-center justify-between gap-3 py-1.5" title={hint}>
+    <span className="text-sm text-neutral-300">{label}</span>
+    <span className="flex gap-1" aria-label={`${label}: ${value} de 5`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} className={`w-5 h-1.5 rounded-full ${n <= value ? 'bg-gradient-to-r from-red-500 to-purple-500' : 'bg-white/10'}`} />
+      ))}
+    </span>
+  </div>
+);
+
+const DeckInfoSheet = ({ deckId, image, selected, onClose, onChoose }) => {
+  const d = deckId ? DECKS[deckId] : null;
+  const info = d && d.info;
+  const lim = deckId ? playerLimits(deckId) : null;
+  const counts = d ? d.challenges.reduce((acc, c) => ({ ...acc, [c.intensity]: (acc[c.intensity] || 0) + 1 }), {}) : {};
+  const lvl = d && d.levelLabels ? d.levelLabels : { soft: 'suaves', medium: 'medias', hard: 'fuertes' };
+  return (
+    <AnimatePresence>
+      {d && info && (
+        <motion.div className="fixed inset-0 z-50 flex items-end justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+          <motion.div
+            role="dialog"
+            aria-label={`Detalles del mazo ${d.name}`}
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            className="relative w-full max-w-md max-h-[88dvh] overflow-y-auto rounded-t-[2rem] bg-[#111014]/95 border-t border-white/10 px-6 pt-3 pb-[max(env(safe-area-inset-bottom),1.5rem)]"
+          >
+            <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-5" />
+            <div className="flex gap-4 items-start">
+              <img src={image} alt="" className="w-20 h-28 rounded-lg object-cover shadow-2xl shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h2 className="text-2xl font-black tracking-tight leading-tight">{d.name}</h2>
+                {d.kana && <p className="text-xs text-pink-200/90">{d.kana} · {d.kanji}</p>}
+                <p className="text-sm text-neutral-400 mt-1">{d.subtitle}</p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  {d.challenges.length} cartas · {counts.soft || 0} {lvl.soft.toLowerCase()} · {counts.medium || 0} {lvl.medium.toLowerCase()} · {counts.hard || 0} {lvl.hard.toLowerCase()}
+                </p>
+              </div>
+              <IconBtn onClick={onClose} aria-label="Cerrar"><X size={18} /></IconBtn>
+            </div>
+
+            <p className="text-[15px] text-neutral-200 leading-relaxed mt-5">{info.description}</p>
+            <p className="text-sm text-neutral-400 mt-3"><span className="text-neutral-500">Ideal para: </span>{info.idealFor}</p>
+
+            <div className="grid grid-cols-3 gap-2 mt-5">
+              {[
+                [Users, 'Jugadores', lim.min === lim.max ? `${lim.min}` : `${lim.min}–${lim.max}`],
+                [MapPin, 'Dónde', info.where],
+                [Clock, 'Duración', info.duration],
+              ].map(([Icon, label, value]) => (
+                <div key={label} className="rounded-2xl bg-white/[0.04] border border-white/10 p-3">
+                  <Icon size={15} className="text-neutral-500" />
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mt-1.5">{label}</p>
+                  <p className="text-sm font-semibold leading-tight mt-0.5">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-white/[0.03] border border-white/10 px-4 py-2">
+              {METERS.map((m) => <Meter key={m.key} label={m.label} hint={m.hint} value={info.meters[m.key]} />)}
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 mt-4">
+              {info.tags.map((t) => (
+                <span key={t} className="text-xs rounded-full border border-white/10 bg-white/[0.04] text-neutral-300 px-2.5 py-1">{t}</span>
+              ))}
+            </div>
+
+            <div className="mt-6">
+              {selected ? (
+                <Ghost onClick={onClose} className="w-full py-3.5"><Check size={16} className="text-green-400" /> Mazo elegido</Ghost>
+              ) : (
+                <Primary onClick={onChoose}>Elegir este mazo</Primary>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 const Scene = React.lazy(() => import('./scene/Scene.jsx'));
 
 // El QR y el link de la sala apuntan al mismo sitio donde se está jugando
@@ -215,6 +302,10 @@ const App = () => {
   const [connected, setConnected] = useState([]);
   const hostRef = useRef(null);
   const guestRef = useRef(null);
+  const hostClients = useRef({}); // nombre -> id del teléfono (para reconexiones)
+  const reconnectTimer = useRef(null);
+  const reconnectUntil = useRef(0);
+  const [resume, setResume] = useState(() => loadSession());
   const netRef = useRef(null);
   netRef.current = net;
 
@@ -234,6 +325,7 @@ const App = () => {
 
   // Cambiar de mazo con flechas o deslizando sobre la carta
   const deckSwipe = useRef(null);
+  const [infoDeck, setInfoDeck] = useState(null);
   const deckRows = useRef({});
   const showcaseZone = useRef(null);
   const [showcaseBox, setShowcaseBox] = useState(null);
@@ -319,6 +411,7 @@ const App = () => {
 
   // ---------- Online: anfitrión ----------
   const leaveRoom = () => {
+    stopRetries();
     if (hostRef.current) hostRef.current.destroy();
     if (guestRef.current) guestRef.current.destroy();
     hostRef.current = null;
@@ -330,31 +423,37 @@ const App = () => {
     setScoresOpen(false);
   };
 
-  const createRoom = () => {
-    const name = onlineName.trim();
+  // restore: { name, code, game } para recuperar tu propia sala después de cerrar la app
+  const createRoom = (restore = null) => {
+    const name = (restore ? restore.name : onlineName).trim();
     if (!name) return;
     leaveRoom();
     setMode('online');
-    setNet({ role: 'host', myName: name, code: null, status: 'connecting', error: null });
+    setNet({ role: 'host', myName: name, code: restore ? restore.code : null, status: 'connecting', error: null });
     setConnected([name]);
-    commit(createLobby(deckId, [name]));
+    commit(restore ? restore.game : createLobby(deckId, [name]));
+    hostClients.current = {};
     hostRef.current = hostRoom({
       onReady: (code) => setNet((n) => n && { ...n, code, status: 'ready' }),
-      onHello: (requested) => {
+      onHello: (requested, peerId, clientId) => {
         const nm = requested.trim();
         const g = gameRef.current;
         if (!nm) return { ok: false, reason: 'Falta tu nombre.' };
         const online = [netRef.current.myName, ...hostRef.current.connectedNames()].map((x) => x.toLowerCase());
         const existing = g.players.find((p) => p.name.toLowerCase() === nm.toLowerCase());
         if (existing) {
-          if (online.includes(existing.name.toLowerCase())) return { ok: false, reason: 'Ese nombre ya está en la sala.' };
-          setTimeout(() => commit(gameRef.current), 0); // vuelve a entrar
+          const sameDevice = clientId && hostClients.current[existing.name] === clientId;
+          if (existing.name === netRef.current.myName) return { ok: false, reason: 'Ese nombre ya está en la sala.' };
+          if (online.includes(existing.name.toLowerCase()) && !sameDevice) return { ok: false, reason: 'Ese nombre ya está en la sala.' };
+          if (clientId) hostClients.current[existing.name] = clientId;
+          setTimeout(() => commit(gameRef.current), 0); // vuelve a entrar a su lugar
           return { ok: true, name: existing.name };
         }
         if (g.phase !== 'lobby') return { ok: false, reason: 'La partida ya comenzó.' };
         if (g.players.length >= playerLimits(g.deckId).max) {
           return { ok: false, reason: playerLimits(g.deckId).max === 2 ? 'Este mazo es para 2 personas y la sala ya está completa.' : 'La sala está llena.' };
         }
+        if (clientId) hostClients.current[nm] = clientId;
         setTimeout(() => {
           const cur = gameRef.current;
           commit({ ...cur, players: [...cur.players, { name: nm, score: 0, sips: 0 }] });
@@ -368,21 +467,38 @@ const App = () => {
         else if (g) commit(g); // solo actualiza quién está conectado
       },
       onError: (msg) => setNet((n) => n && { ...n, status: 'error', error: msg }),
-    });
+    }, restore ? restore.code : null);
     setScreen('game');
   };
 
-  // ---------- Online: invitado ----------
-  const joinRoomAs = () => {
-    const name = onlineName.trim();
-    const code = normalizeCode(joinCode);
-    if (!name || code.length !== 4) return;
-    leaveRoom();
-    setMode('online');
-    setNet({ role: 'guest', myName: name, code, status: 'connecting', error: null });
+  // ---------- Online: invitado (con reconexión automática) ----------
+  const stopRetries = () => {
+    clearTimeout(reconnectTimer.current);
+    reconnectTimer.current = null;
+    reconnectUntil.current = 0;
+  };
+
+  const scheduleRetry = (code, name) => {
+    if (!reconnectUntil.current) reconnectUntil.current = Date.now() + 3 * 60 * 1000;
+    if (Date.now() > reconnectUntil.current) {
+      stopRetries();
+      setNet((n) => n && { ...n, status: 'error', error: 'Se perdió la conexión con el anfitrión.' });
+      return;
+    }
+    setNet((n) => n && { ...n, status: 'reconnecting' });
+    clearTimeout(reconnectTimer.current);
+    reconnectTimer.current = setTimeout(() => connectGuest(code, name), 3000);
+  };
+
+  const connectGuest = (code, name) => {
+    if (guestRef.current) guestRef.current.destroy();
     guestRef.current = joinRoom(code, name, {
-      onWelcome: (nm) => setNet((n) => n && { ...n, myName: nm, status: 'ready' }),
+      onWelcome: (nm) => {
+        stopRetries();
+        setNet((n) => n && { ...n, myName: nm, status: 'ready', error: null });
+      },
       onReject: (reason) => {
+        stopRetries();
         setNet((n) => n && { ...n, status: 'error', error: reason });
         if (guestRef.current) guestRef.current.destroy();
       },
@@ -391,14 +507,105 @@ const App = () => {
         setGame(st);
         setConnected(conn);
       },
-      onClosed: () => setNet((n) => n && { ...n, status: 'error', error: 'El anfitrión cerró la sala.' }),
-      onClose: () => setNet((n) => n && { ...n, status: 'error', error: 'Se perdió la conexión con el anfitrión.' }),
-      onError: (msg) => setNet((n) => n && { ...n, status: 'error', error: msg }),
-    });
+      onClosed: () => {
+        stopRetries();
+        clearSession();
+        setNet((n) => n && { ...n, status: 'error', error: 'El anfitrión cerró la sala.' });
+      },
+      // conexión perdida (por ejemplo, el anfitrión minimizó la app): se reintenta solo
+      onClose: () => scheduleRetry(code, name),
+      onError: (msg) => {
+        if (reconnectUntil.current) scheduleRetry(code, name);
+        else setNet((n) => n && { ...n, status: 'error', error: msg });
+      },
+    }, getClientId());
+  };
+
+  // restore: { name, code } para volver a una sala después de cerrar la app
+  const joinRoomAs = (restore = null) => {
+    const name = (restore ? restore.name : onlineName).trim();
+    const code = normalizeCode(restore ? restore.code : joinCode);
+    if (!name || code.length !== 4) return;
+    leaveRoom();
+    setMode('online');
+    setNet({ role: 'guest', myName: name, code, status: restore ? 'reconnecting' : 'connecting', error: null });
+    if (restore) reconnectUntil.current = Date.now() + 3 * 60 * 1000;
+    connectGuest(code, name);
     setScreen('game');
   };
 
   useEffect(() => () => leaveRoom(), []);
+
+  // Guardar la partida en el teléfono (para retomarla si la app se cierra)
+  useEffect(() => {
+    if (screen !== 'game' || !game) return;
+    if (mode === 'local') {
+      if (game.phase === 'playing') saveSession({ kind: 'local', game });
+    } else if (net && net.code && net.status !== 'error') {
+      if (net.role === 'host') saveSession({ kind: 'host', code: net.code, name: net.myName, game });
+      else saveSession({ kind: 'guest', code: net.code, name: net.myName, deckId: game.deckId });
+    }
+  }, [game, net && net.code, net && net.status, mode, screen]);
+
+  // Pantalla siempre encendida durante la partida + al volver a la app, reconectar la sala
+  const wakeLock = useRef(null);
+  useEffect(() => {
+    const want = screen === 'game';
+    const acquire = async () => {
+      try {
+        if (want && 'wakeLock' in navigator && document.visibilityState === 'visible' && !wakeLock.current) {
+          wakeLock.current = await navigator.wakeLock.request('screen');
+          wakeLock.current.addEventListener('release', () => { wakeLock.current = null; });
+        }
+      } catch {}
+    };
+    if (want) acquire();
+    else if (wakeLock.current) {
+      wakeLock.current.release().catch(() => {});
+      wakeLock.current = null;
+    }
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      acquire();
+      if (hostRef.current) hostRef.current.revive();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+    };
+  }, [screen]);
+
+  // Retomar una partida guardada
+  const resumeSession = () => {
+    const r = resume;
+    setResume(null);
+    if (!r) return;
+    if (r.kind === 'local') {
+      setMode('local');
+      setDeckId(r.game.deckId);
+      setLocalNames(r.game.players.map((p) => p.name));
+      commit(r.game);
+      setScreen('game');
+    } else if (r.kind === 'host') {
+      setDeckId(r.game.deckId);
+      setOnlineName(r.name);
+      createRoom({ name: r.name, code: r.code, game: r.game });
+    } else if (r.kind === 'guest') {
+      if (r.deckId) setDeckId(r.deckId);
+      setOnlineName(r.name);
+      setJoinCode(r.code);
+      joinRoomAs({ name: r.name, code: r.code });
+    }
+  };
+  const resumeLabel = resume
+    ? resume.kind === 'local'
+      ? `${resume.game.players.map((p) => p.name).join(', ')} · ${DECKS[resume.game.deckId] ? DECKS[resume.game.deckId].name : ''}`
+      : resume.kind === 'host'
+        ? `Tu sala ${resume.code}`
+        : `Sala ${resume.code} como ${resume.name}`
+    : '';
 
   // QR de la sala
   useEffect(() => {
@@ -504,6 +711,7 @@ const App = () => {
   const sceneMode = screen === 'deck' ? 'showcase' : screen === 'game' && !netError && phase === 'playing' ? 'playing' : screen === 'game' && !netError && phase === 'winner' ? 'winner' : 'intro';
 
   const backToSetup = () => {
+    clearSession();
     if (mode === 'local') {
       gameRef.current = null;
       setGame(null);
@@ -513,6 +721,7 @@ const App = () => {
   };
 
   const exitToMenu = () => {
+    clearSession();
     if (hostRef.current) {
       // Cerrar sala: avisa a los invitados antes de cortar
       const h = hostRef.current;
@@ -531,7 +740,7 @@ const App = () => {
         title: '¿Salir de la partida?',
         text: 'Se perderán los puntajes de esta partida.',
         ok: 'Salir',
-        run: () => { gameRef.current = null; setGame(null); setScreen('setup'); },
+        run: () => { clearSession(); gameRef.current = null; setGame(null); setScreen('setup'); },
       });
     } else if (net && net.role === 'host') {
       setConfirm({
@@ -545,7 +754,7 @@ const App = () => {
         title: '¿Salir de la sala?',
         text: 'Puedes volver a entrar con el mismo código y tu mismo nombre.',
         ok: 'Salir',
-        run: () => { leaveRoom(); setScreen('online'); },
+        run: () => { clearSession(); leaveRoom(); setScreen('online'); },
       });
     }
   };
@@ -578,8 +787,17 @@ const App = () => {
                     Retos sexuales y de alcohol. Todos deben estar de acuerdo en jugar y cualquiera puede negarse a un reto, sin presión. Bebe con moderación y no conduzcas.
                   </p>
                 </Glass>
-                <motion.div variants={item} className="mt-4">
+                <motion.div variants={item} className="mt-4 space-y-2.5">
                   <Primary onClick={() => setScreen(initialJoinCode ? 'online' : 'deck')}>Soy mayor de 18 · Entrar</Primary>
+                  {resume && !initialJoinCode && (
+                    <div className="flex items-center gap-2">
+                      <Ghost onClick={resumeSession} className="flex-1 py-3.5 min-w-0">
+                        <RotateCcw size={16} className="shrink-0" />
+                        <span className="truncate">Retomar partida · {resumeLabel}</span>
+                      </Ghost>
+                      <IconBtn onClick={() => { clearSession(); setResume(null); }} aria-label="Descartar partida guardada"><X size={16} /></IconBtn>
+                    </div>
+                  )}
                 </motion.div>
               </motion.div>
             )}
@@ -605,6 +823,7 @@ const App = () => {
                     const dx = e.clientX - deckSwipe.current;
                     deckSwipe.current = null;
                     if (Math.abs(dx) > 45) stepDeck(dx < 0 ? 1 : -1);
+                    else if (Math.abs(dx) < 8) setInfoDeck(deckId);
                   }}
                 />
 
@@ -616,7 +835,8 @@ const App = () => {
                     const d = DECKS[id];
                     const lim = playerLimits(id);
                     return (
-                      <Option key={id} active={deckId === id} onClick={() => setDeckId(id)} className="p-2.5 flex items-center gap-3.5">
+                      <div key={id} className="flex items-stretch gap-2">
+                      <Option active={deckId === id} onClick={() => setDeckId(id)} className="flex-1 min-w-0 p-2.5 flex items-center gap-3.5">
                         <span ref={(el) => { deckRows.current[id] = el; }} className="contents" />
                         <img src={deckImages[id]} alt="" className="w-11 h-[3.85rem] rounded-md object-cover shadow-lg shrink-0" />
                         <span className="flex-1 min-w-0">
@@ -626,8 +846,16 @@ const App = () => {
                             {d.subtitle} · {d.challenges.length} cartas{lim.max === 2 ? ' · para 2' : ''}
                           </span>
                         </span>
-                        <span className={`w-4 h-4 rounded-full border-2 shrink-0 mr-1 ${deckId === id ? 'border-red-500 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.7)]' : 'border-white/20'}`} />
                       </Option>
+                      <motion.button
+                        whileTap={{ scale: 0.92 }}
+                        onClick={() => setInfoDeck(id)}
+                        aria-label={`Ver detalles del mazo ${d.name}`}
+                        className="w-11 shrink-0 rounded-2xl border border-white/10 bg-black/45 backdrop-blur-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                      >
+                        <Info size={18} />
+                      </motion.button>
+                      </div>
                     );
                   })}
                   <div className="h-6" />
@@ -745,9 +973,9 @@ const App = () => {
                 </Glass>
                 <motion.div variants={item} className="mt-4">
                   {onlineTab === 'create' ? (
-                    <Primary onClick={createRoom} disabled={!onlineName.trim()}>Crear sala</Primary>
+                    <Primary onClick={() => createRoom()} disabled={!onlineName.trim()}>Crear sala</Primary>
                   ) : (
-                    <Primary onClick={joinRoomAs} disabled={!onlineName.trim() || joinCode.length !== 4}>Entrar</Primary>
+                    <Primary onClick={() => joinRoomAs()} disabled={!onlineName.trim() || joinCode.length !== 4}>Entrar</Primary>
                   )}
                 </motion.div>
               </motion.div>
@@ -1045,6 +1273,30 @@ const App = () => {
         </div>
 
         <ScoreSheet open={scoresOpen} onClose={() => setScoresOpen(false)} players={game ? game.players : []} />
+
+        {/* Aviso de reconexión */}
+        <AnimatePresence>
+          {screen === 'game' && net && net.status === 'reconnecting' && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+              className="fixed top-[max(env(safe-area-inset-top),0.75rem)] inset-x-0 z-40 flex justify-center pointer-events-none"
+              role="status"
+            >
+              <span className="flex items-center gap-2 rounded-full bg-[#111014]/95 border border-amber-400/40 text-amber-200 text-xs font-semibold px-4 py-2 shadow-2xl">
+                <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}><Loader2 size={14} /></motion.span>
+                Reconectando con la sala…
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <DeckInfoSheet
+          deckId={infoDeck}
+          image={infoDeck ? deckImages[infoDeck] : null}
+          selected={infoDeck === deckId}
+          onClose={() => setInfoDeck(null)}
+          onChoose={() => { setDeckId(infoDeck); setInfoDeck(null); }}
+        />
 
         {/* Confirmación de salida */}
         <AnimatePresence>

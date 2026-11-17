@@ -31,19 +31,30 @@ export const normalizeCode = (code) => code.trim().toUpperCase().replace(/[^A-Z0
     onError(message),
   }
 */
-export function hostRoom(handlers) {
+// fixedCode: para recuperar una sala propia (mismo código) después de que la app se cerró
+export function hostRoom(handlers, fixedCode = null) {
   let peer = null;
   let destroyed = false;
+  let code = fixedCode;
   const conns = new Map(); // peerId -> { conn, name }
 
   const open = (attempt = 0) => {
-    const code = makeCode();
+    if (destroyed) return;
+    if (!code) code = makeCode();
     peer = new Peer(PREFIX + code, peerOptions());
     peer.on('open', () => handlers.onReady(code));
     peer.on('error', (e) => {
-      if (e.type === 'unavailable-id' && attempt < 5 && !destroyed) {
+      if (e.type === 'unavailable-id' && !destroyed) {
         peer.destroy();
-        open(attempt + 1);
+        if (fixedCode && attempt < 12) {
+          // el servidor todavía recuerda la sesión anterior: reintentar con el mismo código
+          setTimeout(() => open(attempt + 1), 2500);
+        } else if (!fixedCode && attempt < 5) {
+          code = null;
+          open(attempt + 1);
+        } else {
+          handlers.onError('No se pudo recuperar la sala. Crea una nueva.');
+        }
       } else if (e.type !== 'peer-unavailable') {
         handlers.onError(describe(e));
       }
@@ -53,8 +64,15 @@ export function hostRoom(handlers) {
       conn.on('data', (msg) => {
         if (!msg || typeof msg !== 'object') return;
         if (msg.t === 'hello') {
-          const res = handlers.onHello(String(msg.name || '').slice(0, 16), conn.peer);
+          const res = handlers.onHello(String(msg.name || '').slice(0, 16), conn.peer, String(msg.clientId || ''));
           if (res.ok) {
+            // si el mismo jugador vuelve con una conexión nueva, se reemplaza la vieja
+            for (const [id, c] of conns) {
+              if (c.name === res.name && id !== conn.peer) {
+                conns.delete(id);
+                try { c.conn.close(); } catch {}
+              }
+            }
             conns.set(conn.peer, { conn, name: res.name });
             conn.send({ t: 'welcome', name: res.name });
           } else {
@@ -87,6 +105,15 @@ export function hostRoom(handlers) {
       for (const { conn } of conns.values()) conn.close();
       if (peer) peer.destroy();
     },
+    // Al volver a la app: reconecta con el servidor de salas o recrea la sala con el mismo código
+    revive() {
+      if (destroyed || !peer) return;
+      if (peer.destroyed) open();
+      else if (peer.disconnected) peer.reconnect();
+    },
+    code() {
+      return code;
+    },
     // Avisa a todos que la sala se cerró y luego corta la conexión
     close() {
       for (const { conn } of conns.values()) if (conn.open) conn.send({ t: 'closed' });
@@ -98,13 +125,13 @@ export function hostRoom(handlers) {
 /*
   handlers: { onWelcome(name), onReject(reason), onState(state, connected), onClosed(), onClose(), onError(message) }
 */
-export function joinRoom(code, name, handlers) {
+export function joinRoom(code, name, handlers, clientId = '') {
   let destroyed = false;
   let conn = null;
   const peer = new Peer(peerOptions());
   peer.on('open', () => {
     conn = peer.connect(PREFIX + normalizeCode(code), { reliable: true });
-    conn.on('open', () => conn.send({ t: 'hello', name }));
+    conn.on('open', () => conn.send({ t: 'hello', name, clientId }));
     conn.on('data', (msg) => {
       if (!msg || typeof msg !== 'object') return;
       if (msg.t === 'welcome') handlers.onWelcome(msg.name);

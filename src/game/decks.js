@@ -470,18 +470,42 @@ export const ONLINE_CHALLENGES = [
 export const DECKS = {
   chuto15: {
     id: 'chuto15',
+    info: {
+      description: 'El clásico. Retos, confesiones y preguntas de "bebe si…" que van de lo coqueto a lo muy subido de tono. El partner de cada reto sale al azar.',
+      idealFor: 'Carretes con amigos que ya se tienen confianza.',
+      where: 'En persona',
+      duration: '30–60 min',
+      meters: { intimidad: 4, contacto: 4, atrevimiento: 4, conversacion: 2 },
+      tags: ['Alcohol', 'Contacto físico', 'Desnudez parcial', 'Confesiones'],
+    },
     name: 'Chuto15',
     subtitle: 'Clásico · +18',
     challenges: CHUTO15_CHALLENGES,
   },
   sincensura: {
     id: 'sincensura',
+    info: {
+      description: 'Lo más explícito para grupos: retos sexuales, desnudez parcial y confesiones sin filtro. Cualquiera puede oponerse o tomar el castigo.',
+      idealFor: 'Adultos con mucha confianza que quieren subir la temperatura.',
+      where: 'En persona',
+      duration: '30–45 min',
+      meters: { intimidad: 5, contacto: 5, atrevimiento: 5, conversacion: 2 },
+      tags: ['Contenido sexual explícito', 'Desnudez', 'Contacto íntimo', 'Alcohol'],
+    },
     name: 'Sin Censura',
     subtitle: 'Extremo · +18',
     challenges: SINCENSURA_CHALLENGES,
   },
   entredos: {
     id: 'entredos',
+    info: {
+      description: 'Para una pareja: retos sexuales explícitos, dominio suave y confesiones íntimas. El partner siempre es tu pareja, nunca alguien al azar.',
+      idealFor: 'Parejas que quieren una noche distinta.',
+      where: 'En persona',
+      duration: '30–60 min',
+      meters: { intimidad: 5, contacto: 5, atrevimiento: 4, conversacion: 3 },
+      tags: ['Sexo explícito', 'Desnudez total', 'Solo 2 personas', 'Alcohol opcional'],
+    },
     name: 'Entre Dos',
     subtitle: 'Parejas · ultra hot',
     challenges: ENTREDOS_CHALLENGES,
@@ -490,6 +514,14 @@ export const DECKS = {
   },
   primeracita: {
     id: 'primeracita',
+    info: {
+      description: 'Preguntas para conocerse que van de lo liviano a lo profundo, con un poco de coqueteo al final. Nada explícito.',
+      idealFor: 'Primeras citas, citas por app o conocer mejor a alguien.',
+      where: 'En persona o por videollamada',
+      duration: '30–45 min',
+      meters: { intimidad: 2, contacto: 1, atrevimiento: 2, conversacion: 5 },
+      tags: ['Conversación', 'Coqueteo suave', 'Solo 2 personas'],
+    },
     name: 'Primera Cita',
     subtitle: 'Rompehielo',
     challenges: PRIMERACITA_CHALLENGES,
@@ -499,6 +531,14 @@ export const DECKS = {
   },
   trivia: {
     id: 'trivia',
+    info: {
+      description: 'Preguntas de cultura general en tres dificultades. Respondes en voz alta, ves la respuesta y bebes si fallaste.',
+      idealFor: 'Previas tranquilas, grupos mixtos o cuando todavía no hay tanta confianza.',
+      where: 'En persona o por videollamada',
+      duration: '20–40 min',
+      meters: { intimidad: 0, contacto: 0, atrevimiento: 1, conversacion: 2 },
+      tags: ['Cultura general', 'Sin contenido sexual', 'Alcohol'],
+    },
     name: 'Sabelotodo',
     subtitle: 'Trivia de cultura general',
     challenges: TRIVIA_CHALLENGES,
@@ -507,12 +547,28 @@ export const DECKS = {
   },
   carreteonline: {
     id: 'carreteonline',
+    info: {
+      description: 'Retos para jugar por videollamada: cámara, pantalla compartida, redes y confesiones. Nada exige estar en el mismo lugar.',
+      idealFor: 'Carretes a distancia por Discord, Meet o WhatsApp.',
+      where: 'Por videollamada',
+      duration: '30–60 min',
+      meters: { intimidad: 2, contacto: 0, atrevimiento: 4, conversacion: 3 },
+      tags: ['A distancia', 'Redes sociales', 'Confesiones', 'Alcohol'],
+    },
     name: 'Carrete Online',
     subtitle: 'Por videollamada',
     challenges: ONLINE_CHALLENGES,
   },
   kawaiineko: {
     id: 'kawaiineko',
+    info: {
+      description: 'Retos tiernos y juguetones con temática de gatitos y anime: abrazos, mimos y vergüenza adorable.',
+      idealFor: 'Grupos que quieren reírse sin ponerse explícitos.',
+      where: 'En persona',
+      duration: '20–40 min',
+      meters: { intimidad: 2, contacto: 2, atrevimiento: 2, conversacion: 2 },
+      tags: ['Tierno', 'Contacto suave', 'Sin contenido sexual'],
+    },
     name: 'Kawaii Neko',
     kana: 'かわいいねこ',
     kanji: '可愛い猫',
@@ -522,6 +578,14 @@ export const DECKS = {
 };
 
 export const MAX_PLAYERS = 12;
+
+// Parámetros que se muestran en la ficha de cada mazo (escala 0 a 5)
+export const METERS = [
+  { key: 'intimidad', label: 'Intimidad', hint: 'Qué tan personal y sexual es el contenido' },
+  { key: 'contacto', label: 'Contacto físico', hint: 'Cuánto se tocan los jugadores' },
+  { key: 'atrevimiento', label: 'Atrevimiento', hint: 'Cuánta vergüenza o exposición implica' },
+  { key: 'conversacion', label: 'Conversación', hint: 'Cuánto se trata de hablar y conocerse' },
+];
 export const playerLimits = (deckId) => ({
   min: DECKS[deckId].minPlayers || 2,
   max: DECKS[deckId].maxPlayers || MAX_PLAYERS,
