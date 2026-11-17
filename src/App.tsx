@@ -137,7 +137,11 @@ const ScoreSheet = ({ open, onClose, players }) => {
 
 const Scene = React.lazy(() => import('./scene/Scene.jsx'));
 
-const APP_URL = 'https://chuto15.netlify.app';
+// El QR y el link de la sala apuntan al mismo sitio donde se está jugando
+// (producción o una versión de prueba en Netlify); en local, a producción.
+const APP_URL = /\.netlify\.app$/.test(window.location.hostname)
+  ? window.location.origin
+  : 'https://chuto15.netlify.app';
 
 const initialJoinCode = (() => {
   try {
