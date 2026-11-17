@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import {
   Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ChevronUp, ChevronLeft,
   Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut, Info, Users, MapPin, Clock,
-  SlidersHorizontal, Volume2, VolumeX, Music, Vibrate, AudioLines,
+  SlidersHorizontal, Volume2, VolumeX, Vibrate, AudioLines,
 } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import QRCode from 'qrcode';
@@ -314,7 +314,6 @@ const SettingsSheet = ({ open, onClose }) => {
             <Toggle icon={st.muted ? VolumeX : Volume2} label="Silenciar todo" checked={st.muted} onChange={(v) => set({ muted: v })} />
             <div className="border-t border-white/5 my-1" />
             <Slider icon={Volume2} label="Volumen general" value={st.master} disabled={st.muted} onChange={(v) => set({ master: v })} />
-            <Slider icon={Music} label="Música" value={st.music} disabled={st.muted} onChange={(v) => set({ music: v })} />
             <Slider
               icon={AudioLines} label="Efectos" value={st.sfx} disabled={st.muted}
               onChange={(v) => { set({ sfx: v }); audio.play('tap'); }}
@@ -322,7 +321,7 @@ const SettingsSheet = ({ open, onClose }) => {
             <div className="border-t border-white/5 my-1" />
             <Toggle icon={Vibrate} label="Vibración" checked={st.vibration} onChange={(v) => { set({ vibration: v }); if (v) audio.vibrate(60); }} />
             <Ghost onClick={() => audio.play('done')} className="w-full py-3 mt-3"><AudioLines size={15} /> Probar efectos</Ghost>
-            <p className="text-[11px] text-neutral-600 text-center mt-4">Música y efectos synthwave generados en vivo · se guarda en este teléfono</p>
+            <p className="text-[11px] text-neutral-600 text-center mt-4">Efectos generados en vivo · se guarda en este teléfono</p>
           </motion.div>
         </motion.div>
       )}

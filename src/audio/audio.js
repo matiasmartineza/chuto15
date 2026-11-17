@@ -1,8 +1,8 @@
-// Audio del juego: música (canción en archivo) y efectos sintetizados en vivo con Web Audio
-// al estilo Silent Hill 2 (golpes sordos, metal, estática de radio, sirena).
+// Audio del juego: efectos sintetizados en vivo con Web Audio al estilo Silent Hill 2
+// (golpes sordos, metal, estática de radio, sirena). El juego no tiene música.
 
 const KEY = 'chuto15:audio';
-const DEFAULTS = { master: 0.8, music: 0.45, sfx: 0.85, muted: false, vibration: true };
+const DEFAULTS = { master: 0.8, sfx: 0.85, muted: false, vibration: true };
 
 let settings = { ...DEFAULTS };
 try {
@@ -11,9 +11,8 @@ try {
 } catch {}
 
 let ctx = null;
-let master, musicBus, sfxBus, comp;
+let master, sfxBus, comp;
 let noiseBuf = null;
-let musicOn = false;
 const listeners = new Set();
 
 const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
@@ -42,9 +41,7 @@ function ensure() {
   const makeup = ctx.createGain();
   makeup.gain.value = 1.5; // ganancia de compensación tras el compresor
   master.connect(comp).connect(makeup).connect(ctx.destination);
-  musicBus = ctx.createGain();
   sfxBus = ctx.createGain();
-  musicBus.connect(master);
   sfxBus.connect(master);
 
   const len = ctx.sampleRate;
@@ -61,7 +58,6 @@ function applyVolumes() {
   const t = ctx.currentTime;
   const m = settings.muted ? 0 : settings.master;
   master.gain.setTargetAtTime(m, t, 0.05);
-  musicBus.gain.setTargetAtTime(settings.music * 1.3, t, 0.05);
   sfxBus.gain.setTargetAtTime(settings.sfx * 1.5, t, 0.05);
 }
 
@@ -71,33 +67,6 @@ function env(g, t, a, peak, d, sustain = 0.0001) {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(peak, t + a);
   g.gain.exponentialRampToValueAtTime(Math.max(sustain, 0.0001), t + a + d);
-}
-
-// ---------------- música ----------------
-// Canción instrumental (Suno) servida como archivo. Se reproduce con un <audio> en bucle
-// conectado al bus de música, así respeta el volumen y el silencio de la configuración.
-const MUSIC_URL = '/music/chuto15-neon.mp3';
-let musicEl = null;
-
-function startMusic() {
-  if (!ensure() || musicOn || settings.music <= 0 || settings.muted) return;
-  if (!musicEl) {
-    musicEl = new Audio(MUSIC_URL);
-    musicEl.loop = true;
-    musicEl.preload = 'auto';
-    try {
-      ctx.createMediaElementSource(musicEl).connect(musicBus);
-    } catch {}
-    musicEl.addEventListener('error', () => { musicOn = false; }); // sin archivo: silencio
-  }
-  musicOn = true;
-  const p = musicEl.play();
-  if (p && p.catch) p.catch(() => { musicOn = false; });
-}
-
-function stopMusic() {
-  musicOn = false;
-  if (musicEl) musicEl.pause();
 }
 
 // ---------------- efectos de sonido (estilo Silent Hill 2) ----------------
@@ -371,7 +340,6 @@ export const audio = {
   unlock() {
     if (!ensure()) return;
     if (ctx.state === 'suspended') ctx.resume();
-    if (settings.music > 0 && !settings.muted) startMusic();
   },
   play(name) {
     if (!ctx || settings.muted || settings.sfx <= 0 || ctx.state !== 'running') return;
@@ -399,10 +367,6 @@ export const audio = {
     settings = { ...settings, ...partial };
     try { window.localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
     applyVolumes();
-    if (ctx) {
-      if (settings.music > 0 && !settings.muted) startMusic();
-      else stopMusic();
-    }
     listeners.forEach((l) => l(settings));
   },
   subscribe(fn) {
