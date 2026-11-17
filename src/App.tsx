@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Flame, Wine, UserPlus, Play, RotateCcw, Trophy, X, Check, Heart, Crown, Sparkles, Shuffle, AlertTriangle, ShieldX } from 'lucide-react';
 
+const WIN_SCORE = 400;
+const REPEAT_DECAY = 1 / 4; // cada vez que sale un reto, su probabilidad se multiplica por 1/4
+
 // --- LISTA DE DESAFÍOS (CON PLACEHOLDER {partner}) ---
 // Soft: 10-30 | Medium: 40-70 | Hard: 70-100
 // TOTAL ACTUAL: ~200 Desafíos
@@ -59,7 +62,7 @@ const BASE_CHALLENGES = [
   { text: "Cierra los ojos. {partner} te susurrará una fantasía. Si te ríes o te estremeces, pierdes.", intensity: "hard", points: 75 },
   { text: "Haz la posición del 'perrito' con {partner} (con ropa) y ladra.", intensity: "hard", points: 70 },
   { text: "Deja que {partner} te quite los calcetines con los dientes.", intensity: "hard", points: 80 },
-  { text: "Besa a {partner} donde él/ella elija.", intensity: "hard", points: 85 },
+  { text: "Besa a {partner} en el lugar que {partner} elija (mano, mejilla o cuello).", intensity: "hard", points: 85 },
   { text: "Haz un 'calvo' (mostrar el trasero) rápido al grupo.", intensity: "hard", points: 90 },
   { text: "Permite que {partner} revise tu galería de fotos por 10 segundos.", intensity: "hard", points: 95 },
   { text: "Siéntate sobre las manos de {partner} durante un turno.", intensity: "hard", points: 75 },
@@ -204,8 +207,31 @@ const calculateSips = (challenge) => {
   }
 };
 
+// Retos de tipo "bebe si..." / "todos los que..." (se cumplen bebiendo o no aplican)
+const isDrinkChallenge = (challenge) =>
+  !!challenge && /^(bebe si|todos los)/i.test(challenge.text);
+
+// Elige un índice al azar según pesos (los pesos pueden ser decimales)
+const weightedPick = (weights) => {
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r < 0) return i;
+  }
+  return weights.length - 1;
+};
+
+const pickPartnerIndex = (playerCount, excludeIdx) => {
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * playerCount);
+  } while (idx === excludeIdx);
+  return idx;
+};
+
 const App = () => {
-  const [gameState, setGameState] = useState('setup');
+  const [gameState, setGameState] = useState('consent');
   const [players, setPlayers] = useState([]);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
@@ -215,23 +241,32 @@ const App = () => {
   const [isNegotiated, setIsNegotiated] = useState(false);
   const [negotiatedStakes, setNegotiatedStakes] = useState(null); 
   const [partnerPlayerIndex, setPartnerPlayerIndex] = useState(null); // Índice del partner aleatorio
+  const [nameError, setNameError] = useState('');
+
+  // Multiplicador de probabilidad por reto (baja a 1/4 cada vez que sale)
+  const repeatMultipliers = useRef(BASE_CHALLENGES.map(() => 1));
 
   // --- LOGICA DE CONFIGURACIÓN ---
   const addPlayer = () => {
-    if (newPlayerName.trim() !== '') {
-      setPlayers([...players, { name: newPlayerName, score: 0, sips: 0 }]);
-      setNewPlayerName('');
+    const name = newPlayerName.trim();
+    if (name === '') return;
+    if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+      setNameError('Ya hay un jugador con ese nombre.');
+      return;
     }
+    setNameError('');
+    setPlayers([...players, { name, score: 0, sips: 0 }]);
+    setNewPlayerName('');
   };
 
   const removePlayer = (index) => {
-    const newPlayers = [...players];
-    newPlayers.splice(index, 1);
-    setPlayers(newPlayers);
+    setPlayers(players.filter((_, i) => i !== index));
   };
 
   const startGame = () => {
     if (players.length < 2) return;
+    repeatMultipliers.current = BASE_CHALLENGES.map(() => 1);
+    setCurrentPlayerIndex(0);
     setGameState('playing');
     // Para iniciar el juego, usamos el índice 0 y seleccionamos un reto y partner
     pickChallenge(0, players);
@@ -243,18 +278,15 @@ const App = () => {
     setNegotiatedStakes(null);
     setPartnerPlayerIndex(null); // Resetear partner
 
-    // 1. Elegir Reto
-    const random = Math.floor(Math.random() * BASE_CHALLENGES.length);
-    const selectedChallenge = BASE_CHALLENGES[random];
+    // 1. Elegir Reto (los ya salidos pesan 1/4 cada vez que aparecen)
+    const idx = weightedPick(repeatMultipliers.current);
+    repeatMultipliers.current[idx] *= REPEAT_DECAY;
+    const selectedChallenge = BASE_CHALLENGES[idx];
     setCurrentChallenge(selectedChallenge);
 
     // 2. Elegir Partner (Solo si el reto tiene el placeholder {partner})
     if (currentPlayers.length > 1 && selectedChallenge.text.includes("{partner}")) {
-        let partnerIdx;
-        do {
-            partnerIdx = Math.floor(Math.random() * currentPlayers.length);
-        } while (partnerIdx === playerIdx);
-        setPartnerPlayerIndex(partnerIdx);
+      setPartnerPlayerIndex(pickPartnerIndex(currentPlayers.length, playerIdx));
     }
   };
 
@@ -275,111 +307,73 @@ const App = () => {
     });
 
     // 2. SELECCIONAR NUEVA PREGUNTA (CON PROBABILIDAD PONDERADA)
-    const weightedIndices = [];
-    BASE_CHALLENGES.forEach((challenge, index) => {
-        if (challenge.text === currentChallenge.text) return;
-
-        // Pesos: Hard=5, Medium=3, Soft=1
-        let weight = 1;
-        if (challenge.intensity === 'hard') weight = 5;
-        else if (challenge.intensity === 'medium') weight = 3;
-        else if (challenge.intensity === 'soft') weight = 1;
-
-        for(let i = 0; i < weight; i++) {
-            weightedIndices.push(index);
-        }
+    // Pesos: Hard=5, Medium=3, Soft=1, multiplicados por el decaimiento de repetición
+    const currentIdx = BASE_CHALLENGES.indexOf(currentChallenge);
+    const weights = BASE_CHALLENGES.map((challenge, index) => {
+      if (index === currentIdx) return 0;
+      const base = challenge.intensity === 'hard' ? 5 : challenge.intensity === 'medium' ? 3 : 1;
+      return base * repeatMultipliers.current[index];
     });
-
-    const randomIndex = weightedIndices[Math.floor(Math.random() * weightedIndices.length)];
+    const randomIndex = weightedPick(weights);
+    repeatMultipliers.current[randomIndex] *= REPEAT_DECAY;
     const newChallenge = BASE_CHALLENGES[randomIndex];
     setCurrentChallenge(newChallenge);
     setIsNegotiated(true);
 
     // Re-evaluar Partner si la nueva pregunta lo requiere y no tenemos uno
     if (players.length > 1 && newChallenge.text.includes("{partner}") && partnerPlayerIndex === null) {
-        let partnerIdx;
-        do {
-            partnerIdx = Math.floor(Math.random() * players.length);
-        } while (partnerIdx === currentPlayerIndex);
-        setPartnerPlayerIndex(partnerIdx);
+        setPartnerPlayerIndex(pickPartnerIndex(players.length, currentPlayerIndex));
     } else if (!newChallenge.text.includes("{partner}")) {
         // Si la nueva no requiere partner, limpiamos
         setPartnerPlayerIndex(null);
     }
   };
 
-  // --- NUEVA LÓGICA: PARTNER REFUSAL ---
+  // Stakes actuales (negociados o normales)
+  const getCurrentStakes = () => {
+    if (isNegotiated && negotiatedStakes) {
+      return { points: negotiatedStakes.points, sips: negotiatedStakes.sips };
+    }
+    return { points: currentChallenge.points, sips: calculateSips(currentChallenge) };
+  };
+
+  // Guarda los jugadores actualizados y, o termina la partida, o pasa el turno
+  const finishTurn = (updatedPlayers) => {
+    setPlayers(updatedPlayers);
+    if (updatedPlayers.some(p => p.score >= WIN_SCORE)) {
+      setGameState('winner');
+      return;
+    }
+    nextTurn(updatedPlayers);
+  };
+
+  // --- PARTNER REFUSAL ---
   const handlePartnerRefusal = () => {
-      const newPlayers = [...players];
-      const player = newPlayers[currentPlayerIndex];
-      const partner = newPlayers[partnerPlayerIndex];
-
-      // Calcular stakes actuales (negociados o normales)
-      let pointsTotal = 0;
-      let sipsTotal = 0;
-
-      if (isNegotiated && negotiatedStakes) {
-        pointsTotal = negotiatedStakes.points;
-        sipsTotal = negotiatedStakes.sips;
-      } else {
-        pointsTotal = currentChallenge.points;
-        // USAR NUEVA FUNCIÓN
-        sipsTotal = calculateSips(currentChallenge);
-      }
-
-      // Jugador gana mitad de puntos
-      player.score += Math.floor(pointsTotal / 2);
-      
-      // Partner recibe mitad de sorbos
-      partner.sips += Math.ceil(sipsTotal / 2);
-
-      setPlayers(newPlayers);
-      checkWinner(player);
-      nextTurn(newPlayers);
+    const { points, sips } = getCurrentStakes();
+    const newPlayers = players.map((p, i) => {
+      if (i === currentPlayerIndex) return { ...p, score: p.score + Math.floor(points / 2) };
+      if (i === partnerPlayerIndex) return { ...p, sips: p.sips + Math.ceil(sips / 2) };
+      return p;
+    });
+    finishTurn(newPlayers);
   };
 
   const handleResult = (success) => {
-    const newPlayers = [...players];
-    const player = newPlayers[currentPlayerIndex];
-    
-    let pointsToWin = 0;
-    let sipsToLose = 0;
-
-    if (isNegotiated && negotiatedStakes) {
-      pointsToWin = negotiatedStakes.points;
-      sipsToLose = negotiatedStakes.sips;
-    } else {
-      pointsToWin = currentChallenge.points;
-      // USAR NUEVA FUNCIÓN
-      sipsToLose = calculateSips(currentChallenge);
-    }
-
-    if (success) {
-      player.score += pointsToWin;
-      // NUEVO: Partner gana mitad de puntos si el reto fue exitoso
-      if (partnerPlayerIndex !== null) {
-          const partner = newPlayers[partnerPlayerIndex];
-          partner.score += Math.floor(pointsToWin / 2);
+    const { points, sips } = getCurrentStakes();
+    const newPlayers = players.map((p, i) => {
+      if (success) {
+        if (i === currentPlayerIndex) return { ...p, score: p.score + points };
+        // Partner gana mitad de puntos si el reto fue exitoso
+        if (i === partnerPlayerIndex) return { ...p, score: p.score + Math.floor(points / 2) };
+      } else if (i === currentPlayerIndex) {
+        return { ...p, sips: p.sips + sips };
       }
-    } else {
-      // CORRECCIÓN: ELIMINADA LA PENALIZACIÓN DE PUNTOS
-      // player.score = Math.max(0, player.score - 10);
-      player.sips += sipsToLose;
-    }
-    
-    setPlayers(newPlayers);
-    checkWinner(player);
-    nextTurn(newPlayers);
-  };
-
-  const checkWinner = (player) => {
-     if (player.score >= 400) {
-        setGameState('winner');
-     }
+      return p;
+    });
+    finishTurn(newPlayers);
   };
 
   const nextTurn = (updatedPlayers) => {
-    if (gameState === 'winner') return;
     const nextIndex = (currentPlayerIndex + 1) % updatedPlayers.length;
     setCurrentPlayerIndex(nextIndex);
     pickChallenge(nextIndex, updatedPlayers);
@@ -389,6 +383,8 @@ const App = () => {
     setPlayers(players.map(p => ({ ...p, score: 0, sips: 0 })));
     setGameState('setup');
     setCurrentPlayerIndex(0);
+    setCurrentChallenge(null);
+    repeatMultipliers.current = BASE_CHALLENGES.map(() => 1);
     setIsNegotiated(false);
     setNegotiatedStakes(null);
     setPartnerPlayerIndex(null);
@@ -412,6 +408,7 @@ const App = () => {
   };
 
   const stakes = getDisplayStakes();
+  const drinkType = isDrinkChallenge(currentChallenge);
 
   // Helper para renderizar el texto del reto con el nombre del partner
   const getChallengeText = () => {
@@ -420,7 +417,7 @@ const App = () => {
     // Si hay partner y el texto tiene el placeholder, lo reemplazamos
     if (partnerPlayerIndex !== null && currentChallenge.text.includes("{partner}")) {
         const partnerName = players[partnerPlayerIndex].name;
-        return currentChallenge.text.replace("{partner}", partnerName);
+        return currentChallenge.text.split("{partner}").join(partnerName);
     }
     
     return currentChallenge.text;
@@ -444,6 +441,29 @@ const App = () => {
           </h1>
         </header>
 
+        {/* PANTALLA DE AVISO +18 */}
+        {gameState === 'consent' && (
+          <div className="flex-1 flex flex-col gap-6 animate-in fade-in zoom-in duration-500">
+            <div className="bg-neutral-900/60 backdrop-blur-md border border-neutral-800 p-6 rounded-2xl shadow-2xl text-center">
+              <div className="text-5xl font-black text-red-500 mb-3">+18</div>
+              <h2 className="text-xl font-bold mb-4 text-red-400">Contenido para adultos</h2>
+              <ul className="text-neutral-300 text-sm space-y-2 text-left list-disc pl-5">
+                <li>Este juego contiene retos sexuales y de consumo de alcohol.</li>
+                <li>Solo para mayores de 18 años.</li>
+                <li>Todos los jugadores deben estar de acuerdo en participar.</li>
+                <li>Cualquiera puede negarse a un reto en cualquier momento. Nadie debe sentirse presionado.</li>
+                <li>Bebe con moderación y no conduzcas.</li>
+              </ul>
+            </div>
+            <button
+              onClick={() => setGameState('setup')}
+              className="w-full bg-gradient-to-r from-red-600 to-purple-700 hover:from-red-500 hover:to-purple-600 text-white font-bold py-4 rounded-2xl text-lg shadow-[0_0_20px_rgba(220,38,38,0.4)] transition-all"
+            >
+              Soy mayor de 18 y todos aceptamos jugar
+            </button>
+          </div>
+        )}
+
         {/* PANTALLA DE SETUP */}
         {gameState === 'setup' && (
           <div className="flex-1 flex flex-col gap-6 animate-in fade-in zoom-in duration-500">
@@ -456,7 +476,7 @@ const App = () => {
                 <input
                   type="text"
                   value={newPlayerName}
-                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  onChange={(e) => { setNewPlayerName(e.target.value); setNameError(''); }}
                   onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
                   placeholder="Nombre..."
                   className="flex-1 bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors text-lg"
@@ -468,6 +488,8 @@ const App = () => {
                   <UserPlus size={24} />
                 </button>
               </div>
+
+              {nameError && <p className="text-red-400 text-sm mb-3 -mt-3">{nameError}</p>}
 
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 {players.map((p, i) => (
@@ -588,7 +610,7 @@ const App = () => {
                     className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 p-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 border border-neutral-700 transition-colors h-24"
                 >
                     <Wine className="text-red-500" size={24} />
-                    <span className="text-sm">Castigo</span>
+                    <span className="text-sm">{drinkType ? 'Me niego' : 'Castigo'}</span>
                     <span className="text-[10px] opacity-60 text-center leading-tight">
                         Beber {stakes.loseSips} sorbos
                     </span>
@@ -631,7 +653,7 @@ const App = () => {
                     className="bg-white text-black hover:bg-gray-100 p-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 shadow-[0_0_15px_rgba(255,255,255,0.2)] transition-transform active:scale-95 h-24"
                 >
                     <Check className="text-green-600" strokeWidth={3} size={24} />
-                    <span className="text-sm">¡Hecho!</span>
+                    <span className="text-sm">{drinkType ? 'Bebí / No aplica' : '¡Hecho!'}</span>
                     <span className="text-[10px] opacity-60 text-center leading-tight">
                         Ganar {stakes.win} pts
                     </span>
