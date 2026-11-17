@@ -221,6 +221,12 @@ export const reduce = (state, action) => {
         toast: { id: state.cardKey + 1, text: 'Doble riesgo' },
       };
     }
+    case 'skip': {
+      // Solo el anfitrión (se valida en App): pasa al siguiente sin puntos ni sorbos
+      if (state.verdict) return reduce(state, { type: 'continue' });
+      const nextIdx = (cur + 1) % state.players.length;
+      return draw({ ...state, exitType: 'fail', throwDir: null }, nextIdx);
+    }
     case 'continue': {
       if (!state.verdict) return state;
       const exitType = action.exit || state.verdict.kind;

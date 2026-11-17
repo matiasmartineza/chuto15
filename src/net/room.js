@@ -87,11 +87,16 @@ export function hostRoom(handlers) {
       for (const { conn } of conns.values()) conn.close();
       if (peer) peer.destroy();
     },
+    // Avisa a todos que la sala se cerró y luego corta la conexión
+    close() {
+      for (const { conn } of conns.values()) if (conn.open) conn.send({ t: 'closed' });
+      setTimeout(() => this.destroy(), 300);
+    },
   };
 }
 
 /*
-  handlers: { onWelcome(name), onReject(reason), onState(state, connected), onClose(), onError(message) }
+  handlers: { onWelcome(name), onReject(reason), onState(state, connected), onClosed(), onClose(), onError(message) }
 */
 export function joinRoom(code, name, handlers) {
   let destroyed = false;
@@ -105,6 +110,11 @@ export function joinRoom(code, name, handlers) {
       if (msg.t === 'welcome') handlers.onWelcome(msg.name);
       else if (msg.t === 'reject') handlers.onReject(msg.reason);
       else if (msg.t === 'state') handlers.onState(msg.state, msg.connected || []);
+      else if (msg.t === 'closed') {
+        destroyed = true;
+        handlers.onClosed();
+        peer.destroy();
+      }
     });
     conn.on('close', () => { if (!destroyed) handlers.onClose(); });
   });

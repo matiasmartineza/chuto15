@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import {
   Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ChevronUp, ChevronLeft,
-  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2,
+  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut,
 } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import QRCode from 'qrcode';
@@ -244,8 +244,9 @@ const App = () => {
   const hostAct = (actor, action) => {
     const g = gameRef.current;
     if (!g) return;
-    if (action.type === 'restart' && actor !== netRef.current.myName) return;
-    if (action.type !== 'restart' && !canAct(g, action, actor)) return;
+    const hostOnly = action.type === 'restart' || action.type === 'skip';
+    if (hostOnly && actor !== netRef.current.myName) return;
+    if (!hostOnly && !canAct(g, action, actor)) return;
     commit(reduce(g, action));
   };
 
@@ -355,6 +356,7 @@ const App = () => {
         setGame(st);
         setConnected(conn);
       },
+      onClosed: () => setNet((n) => n && { ...n, status: 'error', error: 'El anfitrión cerró la sala.' }),
       onClose: () => setNet((n) => n && { ...n, status: 'error', error: 'Se perdió la conexión con el anfitrión.' }),
       onError: (msg) => setNet((n) => n && { ...n, status: 'error', error: msg }),
     });
@@ -431,6 +433,8 @@ const App = () => {
   const challenge = playing ? currentChallenge(game) : null;
   const drinkType = isDrinkChallenge(challenge);
   const trivia = playing && isTrivia(game);
+  // El anfitrión puede saltar el turno de alguien que se desconectó
+  const canSkip = playing && mode === 'online' && net && net.role === 'host' && curPlayer && curPlayer.name !== net.myName && !connected.includes(curPlayer.name);
   const limits = playerLimits(game ? game.deckId : deckId);
   const [copied, setCopied] = useState(false);
   const shareLink = async () => {
@@ -461,7 +465,8 @@ const App = () => {
   const nextName = playing ? game.players[(game.current + 1) % game.players.length].name : '';
 
   const sceneDeck = game ? game.deckId : deckId;
-  const sceneMode = screen === 'game' && phase === 'playing' ? 'playing' : screen === 'game' && phase === 'winner' ? 'winner' : 'intro';
+  const netError = !!(net && net.status === 'error');
+  const sceneMode = screen === 'game' && !netError && phase === 'playing' ? 'playing' : screen === 'game' && !netError && phase === 'winner' ? 'winner' : 'intro';
 
   const backToSetup = () => {
     if (mode === 'local') {
@@ -473,8 +478,41 @@ const App = () => {
   };
 
   const exitToMenu = () => {
+    if (hostRef.current) {
+      // Cerrar sala: avisa a los invitados antes de cortar
+      const h = hostRef.current;
+      hostRef.current = null;
+      h.close();
+    }
     leaveRoom();
     setScreen('mode');
+  };
+
+  // Confirmación para salir / cerrar sala
+  const [confirm, setConfirm] = useState(null);
+  const askExit = () => {
+    if (mode === 'local') {
+      setConfirm({
+        title: '¿Salir de la partida?',
+        text: 'Se perderán los puntajes de esta partida.',
+        ok: 'Salir',
+        run: () => { gameRef.current = null; setGame(null); setScreen('setup'); },
+      });
+    } else if (net && net.role === 'host') {
+      setConfirm({
+        title: '¿Cerrar la sala?',
+        text: 'La partida terminará para todos los jugadores.',
+        ok: 'Cerrar sala',
+        run: exitToMenu,
+      });
+    } else {
+      setConfirm({
+        title: '¿Salir de la sala?',
+        text: 'Puedes volver a entrar con el mismo código y tu mismo nombre.',
+        ok: 'Salir',
+        run: () => { leaveRoom(); setScreen('online'); },
+      });
+    }
   };
 
   const fadeKey = screen === 'game' ? `game-${phase || 'connecting'}` : screen;
@@ -484,7 +522,7 @@ const App = () => {
       <div className="fixed inset-0 bg-[#0a0a0a] text-white overflow-hidden">
         {hasWebGL && (
           <Suspense fallback={null}>
-            <Scene mode={sceneMode} deckId={sceneDeck} card={screen === 'game' ? card : null} verdict={verdict} exitType={game ? game.exitType : 'done'} drag={drag} />
+            <Scene mode={sceneMode} deckId={sceneDeck} card={screen === 'game' && !netError ? card : null} verdict={netError ? null : verdict} exitType={game ? game.exitType : 'done'} drag={drag} />
           </Suspense>
         )}
 
@@ -493,7 +531,7 @@ const App = () => {
 
             {/* AVISO +18 */}
             {screen === 'consent' && (
-              <motion.div key="consent" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+              <motion.div key="consent" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <motion.div variants={item} className="flex justify-center pt-6"><Logo /></motion.div>
                 <div className="flex-1" />
                 <Glass className="p-6 pointer-events-auto">
@@ -513,7 +551,7 @@ const App = () => {
 
             {/* MAZO */}
             {screen === 'deck' && (
-              <motion.div key="deck" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+              <motion.div key="deck" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <Header
                   right={install.prompt && !install.standalone ? (
                     <IconBtn aria-label="Instalar app" onClick={async () => { install.prompt.prompt(); install.clear(); }}><Download size={17} /></IconBtn>
@@ -549,7 +587,7 @@ const App = () => {
 
             {/* MODO */}
             {screen === 'mode' && (
-              <motion.div key="mode" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+              <motion.div key="mode" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <Header onBack={() => setScreen('deck')} />
                 <Title kicker={`Mazo ${DECKS[deckId].name}`}>¿Cómo quieren jugar?</Title>
                 <div className="flex-1" />
@@ -574,7 +612,7 @@ const App = () => {
 
             {/* JUGADORES (LOCAL) */}
             {screen === 'setup' && (
-              <motion.div key="setup" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+              <motion.div key="setup" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <Header onBack={() => setScreen('mode')} />
                 <Title kicker="Partida local">¿Quiénes juegan?</Title>
                 <div className="flex-1" />
@@ -618,7 +656,7 @@ const App = () => {
 
             {/* ONLINE: CREAR O UNIRSE */}
             {screen === 'online' && (
-              <motion.div key="online" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+              <motion.div key="online" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <Header onBack={() => setScreen(initialJoinCode ? 'deck' : 'mode')} />
                 <Title kicker="Online">{onlineTab === 'create' ? 'Crea una sala' : 'Únete a una sala'}</Title>
                 <div className="flex-1" />
@@ -664,8 +702,13 @@ const App = () => {
 
             {/* SALA ONLINE: conectando / error / lobby */}
             {screen === 'game' && mode === 'online' && (!game || phase === 'lobby' || (net && net.status === 'error')) && (
-              <motion.div key={`room-${net && net.status === 'error' ? 'error' : phase || 'connecting'}`} variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
-                <Header onBack={exitToMenu} />
+              <motion.div key={`room-${net && net.status === 'error' ? 'error' : phase || 'connecting'}`} variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
+                <Header
+                  onBack={() => (net && net.status !== 'error' && game && (net.role === 'guest' || game.players.length > 1) ? askExit() : exitToMenu())}
+                  right={net && net.status !== 'error' && game ? (
+                    <IconBtn onClick={askExit} aria-label={net.role === 'host' ? 'Cerrar sala' : 'Salir de la sala'}><LogOut size={17} /></IconBtn>
+                  ) : null}
+                />
                 {net && net.status === 'error' ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
                     <WifiOff size={36} className="text-red-400" />
@@ -732,9 +775,14 @@ const App = () => {
 
             {/* JUEGO */}
             {screen === 'game' && playing && curPlayer && !(net && net.status === 'error') && (
-              <motion.div key="playing" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+              <motion.div key="playing" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <motion.div variants={item} className="flex items-center justify-between">
-                  <Logo small />
+                  <div className="flex items-center gap-2.5">
+                    <IconBtn onClick={askExit} aria-label={mode === 'local' ? 'Salir de la partida' : net && net.role === 'host' ? 'Cerrar sala' : 'Salir de la sala'}>
+                      <LogOut size={17} />
+                    </IconBtn>
+                    <Logo small />
+                  </div>
                   <div className="flex items-center gap-2">
                     {net && net.code && <span className="text-xs font-bold tracking-[0.2em] text-neutral-500 border border-white/10 rounded-full px-3 py-1.5">{net.code}</span>}
                     <IconBtn onClick={() => setScoresOpen(true)} aria-label="Ver puntajes"><Trophy size={18} /></IconBtn>
@@ -817,7 +865,14 @@ const App = () => {
                             <span className="text-xs">{verdict.gameOver ? 'y descubre al ganador' : `Sigue ${nextName}`}</span>
                           </button>
                         ) : (
-                          <p className="h-[7.25rem] flex items-center justify-center text-sm text-neutral-400">Esperando que {curPlayer.name} lance la carta…</p>
+                          <div className="h-[7.25rem] flex flex-col items-center justify-center gap-2 text-sm text-neutral-400">
+                            Esperando que {curPlayer.name} lance la carta…
+                            {canSkip && (
+                              <Ghost onClick={() => act({ type: 'skip' })} className="px-4 py-2 text-xs">
+                                {curPlayer.name} se desconectó · continuar
+                              </Ghost>
+                            )}
+                          </div>
                         )}
                       </motion.div>
                     ) : myTurn && trivia ? (
@@ -891,6 +946,11 @@ const App = () => {
                           </p>
                         )}
                         Esperando a {curPlayer.name}…
+                        {canSkip && (
+                          <Ghost onClick={() => act({ type: 'skip' })} className="px-4 py-2 text-xs mt-1">
+                            {curPlayer.name} se desconectó · saltar turno
+                          </Ghost>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -900,7 +960,7 @@ const App = () => {
 
             {/* GANADOR */}
             {screen === 'game' && phase === 'winner' && winner && !(net && net.status === 'error') && (
-              <motion.div key="winner" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col">
+              <motion.div key="winner" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <motion.div variants={item} className="flex justify-center"><Logo small /></motion.div>
                 <div className="flex-1 flex flex-col items-center justify-center text-center">
                   <motion.p variants={item} className="text-[10px] uppercase tracking-[0.5em] text-neutral-400 mb-2">Ganador</motion.p>
@@ -922,7 +982,9 @@ const App = () => {
                   ) : (
                     <p className="text-center text-sm text-neutral-400 py-4">Esperando que {game.players[0].name} inicie otra partida…</p>
                   )}
-                  <button onClick={exitToMenu} className="w-full text-xs text-neutral-500 hover:text-white py-1">Salir al menú</button>
+                  <button onClick={mode === 'online' ? askExit : exitToMenu} className="w-full text-xs text-neutral-500 hover:text-white py-1">
+                    {mode === 'online' ? (net && net.role === 'host' ? 'Cerrar sala' : 'Salir de la sala') : 'Salir al menú'}
+                  </button>
                 </motion.div>
               </motion.div>
             )}
@@ -930,6 +992,33 @@ const App = () => {
         </div>
 
         <ScoreSheet open={scoresOpen} onClose={() => setScoresOpen(false)} players={game ? game.players : []} />
+
+        {/* Confirmación de salida */}
+        <AnimatePresence>
+          {confirm && (
+            <motion.div className="fixed inset-0 z-50 flex items-end justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirm(null)} />
+              <motion.div
+                role="alertdialog"
+                aria-label={confirm.title}
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+                className="relative w-full max-w-md rounded-t-[2rem] bg-[#111014]/95 border-t border-white/10 px-6 pt-3 pb-[max(env(safe-area-inset-bottom),1.5rem)]"
+              >
+                <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-5" />
+                <h2 className="text-lg font-bold">{confirm.title}</h2>
+                <p className="text-sm text-neutral-400 mt-1 mb-6">{confirm.text}</p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Ghost onClick={() => setConfirm(null)} className="py-3.5">Cancelar</Ghost>
+                  <motion.button whileTap={{ scale: 0.96 }} onClick={() => { const run = confirm.run; setConfirm(null); run(); }}
+                    className="rounded-full bg-red-600 hover:bg-red-500 text-white py-3.5 font-bold transition-colors">
+                    {confirm.ok}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </MotionConfig>
   );
