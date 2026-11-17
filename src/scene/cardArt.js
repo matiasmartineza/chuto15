@@ -16,6 +16,10 @@ export const THEMES = {
     soft: '#ec4899', medium: '#a855f7', hard: '#ef4444', negotiated: '#f59e0b',
     face: '#0f0e12', ring: ['#ef4444', '#9333ea'], deck: ['#ef4444', '#7e22ce'],
   },
+  sincensura: {
+    soft: '#fb7185', medium: '#f43f5e', hard: '#dc2626', negotiated: '#fbbf24',
+    face: '#120709', ring: ['#e11d48', '#d4a24c'], deck: ['#e11d48', '#7f1d1d'],
+  },
   kawaiineko: {
     soft: '#f9a8d4', medium: '#c4b5fd', hard: '#fb7185', negotiated: '#fde68a',
     face: '#18121d', ring: ['#f9a8d4', '#a5f3fc'], deck: ['#f9a8d4', '#c4b5fd'],
@@ -59,7 +63,9 @@ function spaced(ctx, px) {
 const backCanvases = {};
 
 export function getBackCanvas(deckId) {
-  if (!backCanvases[deckId]) backCanvases[deckId] = deckId === 'kawaiineko' ? drawKawaiiBack() : drawChutoBack();
+  if (!backCanvases[deckId]) {
+    backCanvases[deckId] = deckId === 'kawaiineko' ? drawKawaiiBack() : deckId === 'sincensura' ? drawCensuraBack() : drawChutoBack();
+  }
   return backCanvases[deckId];
 }
 
@@ -127,6 +133,114 @@ function drawChutoBack() {
   ctx.fillText('CHUTO', W / 2 + 7, H / 2 - 270);
   ctx.fillText('· · ·', W / 2 + 7, H / 2 + 270);
 
+  return c;
+}
+
+// Reverso "Sin Censura": negro y carmesí, labios rojos y detalles dorados
+function drawCensuraBack() {
+  const [c, ctx] = makeCanvas(1.5);
+  const gold = '#d4a24c';
+
+  const bg = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, H * 0.75);
+  bg.addColorStop(0, '#3b0710');
+  bg.addColorStop(0.6, '#16050a');
+  bg.addColorStop(1, '#070304');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // trama de rombos tipo terciopelo
+  ctx.save();
+  ctx.globalAlpha = 0.07;
+  ctx.strokeStyle = '#ff4d6d';
+  ctx.lineWidth = 1;
+  for (let i = -H; i < W + H; i += 34) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i, H); ctx.lineTo(i + H, 0); ctx.stroke();
+  }
+  ctx.restore();
+
+  // marco dorado doble
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 3;
+  roundRect(ctx, 30, 30, W - 60, H - 60, R - 16);
+  ctx.stroke();
+  ctx.globalAlpha = 0.5;
+  ctx.lineWidth = 1.2;
+  roundRect(ctx, 46, 46, W - 92, H - 92, R - 24);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Labios
+  const cx = W / 2;
+  const cy = H / 2 + 6;
+  const lipW = 210;
+  const lips = ctx.createLinearGradient(cx, cy - 90, cx, cy + 90);
+  lips.addColorStop(0, '#ff2a4d');
+  lips.addColorStop(0.5, '#c8102e');
+  lips.addColorStop(1, '#7a0619');
+
+  // labio superior (arco de cupido)
+  ctx.beginPath();
+  ctx.moveTo(cx - lipW, cy);
+  ctx.bezierCurveTo(cx - lipW * 0.7, cy - 40, cx - lipW * 0.45, cy - 95, cx - lipW * 0.22, cy - 88);
+  ctx.bezierCurveTo(cx - lipW * 0.08, cy - 84, cx - 6, cy - 62, cx, cy - 56);
+  ctx.bezierCurveTo(cx + 6, cy - 62, cx + lipW * 0.08, cy - 84, cx + lipW * 0.22, cy - 88);
+  ctx.bezierCurveTo(cx + lipW * 0.45, cy - 95, cx + lipW * 0.7, cy - 40, cx + lipW, cy);
+  ctx.bezierCurveTo(cx + lipW * 0.55, cy - 6, cx + lipW * 0.25, cy - 14, cx, cy - 4);
+  ctx.bezierCurveTo(cx - lipW * 0.25, cy - 14, cx - lipW * 0.55, cy - 6, cx - lipW, cy);
+  ctx.closePath();
+  ctx.fillStyle = lips;
+  ctx.fill();
+
+  // labio inferior
+  ctx.beginPath();
+  ctx.moveTo(cx - lipW, cy + 4);
+  ctx.bezierCurveTo(cx - lipW * 0.55, cy + 2, cx - lipW * 0.25, cy + 10, cx, cy + 6);
+  ctx.bezierCurveTo(cx + lipW * 0.25, cy + 10, cx + lipW * 0.55, cy + 2, cx + lipW, cy + 4);
+  ctx.bezierCurveTo(cx + lipW * 0.7, cy + 70, cx + lipW * 0.35, cy + 110, cx, cy + 112);
+  ctx.bezierCurveTo(cx - lipW * 0.35, cy + 110, cx - lipW * 0.7, cy + 70, cx - lipW, cy + 4);
+  ctx.closePath();
+  ctx.fillStyle = lips;
+  ctx.fill();
+
+  // brillo
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(cx - 50, cy + 52, 46, 12, -0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.22;
+  ctx.beginPath();
+  ctx.ellipse(cx + 70, cy - 52, 30, 8, 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // línea entre labios
+  ctx.strokeStyle = '#4a0310';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(cx - lipW + 6, cy + 2);
+  ctx.bezierCurveTo(cx - lipW * 0.5, cy + 6, cx - lipW * 0.2, cy + 12, cx, cy + 5);
+  ctx.bezierCurveTo(cx + lipW * 0.2, cy + 12, cx + lipW * 0.5, cy + 6, cx + lipW - 6, cy + 2);
+  ctx.stroke();
+
+  // Textos
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = gold;
+  ctx.font = `800 34px ${FONT}`;
+  spaced(ctx, 12);
+  ctx.fillText('SIN CENSURA', W / 2 + 6, 178);
+  spaced(ctx, 0);
+
+  ctx.beginPath();
+  ctx.arc(W / 2, H - 182, 44, 0, Math.PI * 2);
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.font = `900 34px ${FONT}`;
+  ctx.fillText('+18', W / 2, H - 180);
   return c;
 }
 

@@ -297,6 +297,7 @@ const App = () => {
     leaveRoom();
     setMode('online');
     setNet({ role: 'host', myName: name, code: null, status: 'connecting', error: null });
+    setConnected([name]);
     commit(createLobby(deckId, [name]));
     hostRef.current = hostRoom({
       onReady: (code) => setNet((n) => n && { ...n, code, status: 'ready' }),
@@ -360,7 +361,7 @@ const App = () => {
   // QR de la sala
   useEffect(() => {
     if (!net || !net.code) return;
-    QRCode.toDataURL(`${APP_URL}/?sala=${net.code}`, { margin: 1, width: 320, color: { dark: '#ffffff', light: '#00000000' } })
+    QRCode.toDataURL(`${APP_URL}/?sala=${net.code}`, { margin: 2, width: 360, errorCorrectionLevel: 'M', color: { dark: '#0a0a0a', light: '#ffffff' } })
       .then(setQrURL)
       .catch(() => setQrURL(''));
   }, [net && net.code]);
@@ -650,10 +651,10 @@ const App = () => {
                     </motion.div>
                     {net.role === 'host' && qrURL && (
                       <motion.div variants={item} className="flex flex-col items-center mt-4">
-                        <div className="p-3 rounded-3xl bg-white/[0.04] border border-white/10">
-                          <img src={qrURL} alt={`Código QR para unirse a la sala ${net.code}`} className="w-36 h-36" />
+                        <div className="pointer-events-auto rounded-3xl bg-[#111014] border border-white/10 p-3 pb-2.5 shadow-[0_10px_40px_rgba(0,0,0,.7)] flex flex-col items-center">
+                          <img src={qrURL} alt={`Código QR para unirse a la sala ${net.code}`} className="w-36 h-36 rounded-xl bg-white" />
+                          <p className="text-[11px] text-neutral-400 mt-2 text-center leading-snug">Escanea para abrir la app y unirte<br /><span className="text-neutral-500">{APP_URL.replace('https://', '')}</span></p>
                         </div>
-                        <p className="text-xs text-neutral-500 mt-2 text-center">Escanea para abrir la app y unirte<br />{APP_URL.replace('https://', '')}</p>
                       </motion.div>
                     )}
                     <div className="flex-1" />

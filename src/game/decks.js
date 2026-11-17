@@ -224,6 +224,72 @@ export const KAWAII_CHALLENGES = [
   { text: "Bebe si llevas algo rosado puesto.", intensity: "soft", points: 10 },
 ];
 
+// --- MAZO SIN CENSURA (extremo, +18) ---
+// Todo es entre adultos que aceptaron jugar: el partner siempre puede oponerse
+// y quien no quiera hacer un reto puede tomar el castigo.
+export const SINCENSURA_CHALLENGES = [
+  // HARD (70 - 100)
+  { text: "Muéstrale a {partner}, solo a {partner}, lo que tienes bajo la ropa interior durante 3 segundos.", intensity: "hard", points: 100 },
+  { text: "Acaricia a {partner} entre las piernas por encima de la ropa interior durante 5 segundos.", intensity: "hard", points: 100 },
+  { text: "Quítate la ropa interior sin quitarte el resto de la ropa y entrégasela a {partner} como trofeo.", intensity: "hard", points: 95 },
+  { text: "Mete tu mano bajo la ropa de {partner} y acaríciale donde te deje durante 10 segundos.", intensity: "hard", points: 95 },
+  { text: "Besa el cuerpo de {partner} desde el cuello hasta el borde de su ropa interior.", intensity: "hard", points: 95 },
+  { text: "Quédate en ropa interior hasta tu próximo turno.", intensity: "hard", points: 90 },
+  { text: "Siéntate a horcajadas sobre {partner} y muévete como si lo estuvieran haciendo durante 15 segundos.", intensity: "hard", points: 90 },
+  { text: "Lame el pecho de {partner} sin ropa de por medio.", intensity: "hard", points: 90 },
+  { text: "Hazle un lap dance a {partner} y quítate una prenda en medio del baile.", intensity: "hard", points: 90 },
+  { text: "Quítale una prenda a {partner} usando solo la boca.", intensity: "hard", points: 90 },
+  { text: "Body shot completo: sal en el cuello de {partner}, el trago desde su ombligo y el limón desde su boca.", intensity: "hard", points: 90 },
+  { text: "Muestra la foto más atrevida tuya que tengas en el teléfono.", intensity: "hard", points: 90 },
+  { text: "Besa a {partner} con lengua durante 10 segundos.", intensity: "hard", points: 85 },
+  { text: "Deja que {partner} te toque la entrepierna por encima de la ropa durante 10 segundos.", intensity: "hard", points: 85 },
+  { text: "Muerde suave la parte interna del muslo de {partner}.", intensity: "hard", points: 85 },
+  { text: "Recrea con {partner} tu posición sexual favorita, con ropa, durante 15 segundos.", intensity: "hard", points: 85 },
+  { text: "Véndate los ojos y deja que {partner} te bese donde quiera de la cintura para arriba.", intensity: "hard", points: 85 },
+  { text: "Acuéstate y deja que {partner} beba un trago servido sobre tu abdomen.", intensity: "hard", points: 85 },
+  { text: "Deja que {partner} te quite el sostén o la camiseta usando solo los dientes.", intensity: "hard", points: 85 },
+  { text: "Gime el nombre de {partner} en su oído como si estuvieras a punto de acabar.", intensity: "hard", points: 80 },
+  { text: "Pasa un hielo con la boca por el cuello y el pecho de {partner}.", intensity: "hard", points: 80 },
+  { text: "Frótate contra {partner} bailando durante 30 segundos sin separarte.", intensity: "hard", points: 80 },
+  { text: "Describe con detalle lo que le harías a {partner} si estuvieran solos en una cama.", intensity: "hard", points: 80 },
+  { text: "Muéstrale a {partner} paso a paso cómo te gusta que te desvistan.", intensity: "hard", points: 80 },
+  { text: "Tómate ahora una foto sexy y mándasela a {partner}.", intensity: "hard", points: 80 },
+  { text: "Deja que {partner} te dé tres nalgadas y cuéntalas en voz alta.", intensity: "hard", points: 75 },
+  { text: "Cuenta con detalle la mejor vez que te hicieron sexo oral.", intensity: "hard", points: 75 },
+
+  // MEDIUM (40 - 70)
+  { text: "Di con quién de esta sala tendrías sexo esta noche si nadie se enterara.", intensity: "medium", points: 70 },
+  { text: "Susúrrale a {partner} cómo te masturbas.", intensity: "medium", points: 70 },
+  { text: "Hazle un chupón a {partner} en un lugar que no se vea.", intensity: "medium", points: 70 },
+  { text: "Confiesa la fantasía sexual que nunca le has contado a nadie.", intensity: "medium", points: 65 },
+  { text: "Describe el orgasmo más intenso que has tenido.", intensity: "medium", points: 65 },
+  { text: "Di con cuántas personas te has acostado.", intensity: "medium", points: 60 },
+  { text: "Lame un dedo de {partner} como si fuera otra cosa.", intensity: "medium", points: 60 },
+  { text: "Di cada cuánto te masturbas y en qué piensas cuando lo haces.", intensity: "medium", points: 60 },
+  { text: "Imita la cara que pones cuando acabas.", intensity: "medium", points: 60 },
+  { text: "Bebe si alguna vez te acostaste con alguien de esta sala.", intensity: "medium", points: 60 },
+  { text: "Cuenta el lugar más arriesgado donde lo has hecho.", intensity: "medium", points: 55 },
+  { text: "Confiesa qué es lo que más te calienta que te hagan.", intensity: "medium", points: 55 },
+  { text: "Siéntate de frente en las piernas de {partner} hasta tu próximo turno.", intensity: "medium", points: 55 },
+  { text: "Bebe si alguna vez lo hiciste con más de una persona a la vez.", intensity: "medium", points: 55 },
+  { text: "Dile a {partner} qué parte de su cuerpo te gustaría besar y por qué.", intensity: "medium", points: 50 },
+  { text: "Bebe si tienes un juguete sexual, y di cuál es.", intensity: "medium", points: 50 },
+  { text: "Bebe si alguna vez te pillaron teniendo sexo.", intensity: "medium", points: 50 },
+  { text: "Bebe si te gustaría hacer un trío esta noche.", intensity: "medium", points: 50 },
+  { text: "Deja que {partner} te huela el cuello y diga qué le dan ganas de hacerte.", intensity: "medium", points: 45 },
+  { text: "Bebe si alguna vez fingiste un orgasmo.", intensity: "medium", points: 45 },
+
+  // SOFT (10 - 30)
+  { text: "Cuenta tu último sueño erótico.", intensity: "soft", points: 30 },
+  { text: "Pon nota del 1 al 10 a lo bueno que crees que es {partner} en la cama.", intensity: "soft", points: 25 },
+  { text: "Di qué parte del cuerpo de {partner} morderías.", intensity: "soft", points: 20 },
+  { text: "Di tu palabra favorita en la cama.", intensity: "soft", points: 20 },
+  { text: "Bebe si hoy elegiste tu ropa interior pensando en alguien.", intensity: "soft", points: 20 },
+  { text: "Di qué ropa interior llevas, sin enseñarla.", intensity: "soft", points: 15 },
+  { text: "Di qué es lo primero que miras de un cuerpo desnudo.", intensity: "soft", points: 15 },
+  { text: "Bebe si alguna vez mandaste una foto desnudo/a.", intensity: "soft", points: 15 },
+];
+
 // Lo que caracteriza a cada mazo es su reverso (ver scene/cardTextures.js)
 export const DECKS = {
   chuto15: {
@@ -231,6 +297,12 @@ export const DECKS = {
     name: 'Chuto15',
     subtitle: 'Clásico · +18',
     challenges: CHUTO15_CHALLENGES,
+  },
+  sincensura: {
+    id: 'sincensura',
+    name: 'Sin Censura',
+    subtitle: 'Extremo · +18',
+    challenges: SINCENSURA_CHALLENGES,
   },
   kawaiineko: {
     id: 'kawaiineko',
