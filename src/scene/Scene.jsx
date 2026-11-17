@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { MeshReflectorMaterial, RoundedBox, Sparkles } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { easing } from 'maath';
-import { CARD_W, CARD_H, CARD_R, ACCENTS, VERDICT_COLORS, getBackTexture, makeFaceTexture, makeVerdictTexture } from './cardTextures.js';
+import { CARD_W, CARD_H, CARD_R, VERDICT_COLORS, themeOf, getBackTexture, makeFaceTexture, makeVerdictTexture } from './cardTextures.js';
 
 // ---------- Constantes de la escena ----------
 const FLOOR_Y = -2.6;
@@ -33,8 +33,8 @@ const EXITS = {
 // Grosor del canto luminoso que asoma alrededor de la carta
 const RIM = 0.012;
 // flipBack: gira el reverso 180° para que se lea derecho cuando la carta está tumbada
-const CardMesh = ({ faceTexture, verdictTexture = null, accent = '#ef4444', glow = 1.6, flipBack = false }) => {
-  const back = getBackTexture();
+const CardMesh = ({ deckId = 'chuto15', faceTexture, verdictTexture = null, accent = '#ef4444', glow = 1.6, flipBack = false }) => {
+  const back = getBackTexture(deckId);
   const edge = useMemo(() => new THREE.Color(accent).multiplyScalar(glow), [accent, glow]);
   return (
     <group>
@@ -70,7 +70,7 @@ const setOpacity = (obj, o) => {
 // raised: el mazo sube solo mientras se saca una carta; el resto del tiempo
 // se hunde bajo el piso para no quedar detrás de la carta que se está leyendo.
 const DECK_HIDDEN_DROP = 2.8;
-const Deck = ({ visible, raised }) => {
+const Deck = ({ visible, raised, deckId }) => {
   const g = useRef();
   const drop = useRef({ current: DECK_HIDDEN_DROP });
   useFrame((state, dt) => {
@@ -84,7 +84,7 @@ const Deck = ({ visible, raised }) => {
     <group ref={g} quaternion={DECK_QUAT} scale={DECK_SCALE}>
       {Array.from({ length: DECK_COUNT }).map((_, i) => (
         <group key={i} position={[Math.sin(i * 2.3) * 0.03, Math.cos(i * 1.7) * 0.03, -i * DECK_GAP]} rotation={[0, 0, Math.sin(i * 3.1) * 0.03]}>
-          <CardMesh flipBack accent={i === DECK_COUNT - 1 ? '#ef4444' : '#7e22ce'} glow={i === DECK_COUNT - 1 ? 1.6 : 0.5} />
+          <CardMesh deckId={deckId} flipBack accent={i === DECK_COUNT - 1 ? themeOf(deckId).deck[0] : themeOf(deckId).deck[1]} glow={i === DECK_COUNT - 1 ? 1.6 : 0.5} />
         </group>
       ))}
     </group>
@@ -103,7 +103,7 @@ const ActiveCard = ({ data, verdict, exit, delay, view, drag, onGone }) => {
   useEffect(() => () => verdictTexture && verdictTexture.dispose(), [verdictTexture]);
   const accent = verdict
     ? VERDICT_COLORS[verdict.kind]
-    : data.negotiated ? ACCENTS.negotiated : ACCENTS[data.intensity];
+    : data.negotiated ? themeOf(data.deckId).negotiated : themeOf(data.deckId)[data.intensity];
   const flip = useRef({ current: 0 });
 
   const g = useRef();
@@ -202,14 +202,14 @@ const ActiveCard = ({ data, verdict, exit, delay, view, drag, onGone }) => {
 
   return (
     <group ref={g} visible={false}>
-      <CardMesh flipBack faceTexture={texture} verdictTexture={verdictTexture} accent={accent} glow={2} />
+      <CardMesh deckId={data.deckId} flipBack faceTexture={texture} verdictTexture={verdictTexture} accent={accent} glow={2} />
     </group>
   );
 };
 
 // ---------- Anillo de cartas (inicio y ganador) ----------
 const RING_COUNT = 12;
-const CardRing = ({ mode, view }) => {
+const CardRing = ({ mode, view, deckId }) => {
   const g = useRef();
   const speed = useRef(0.15);
   useFrame((state, dt) => {
@@ -229,7 +229,7 @@ const CardRing = ({ mode, view }) => {
         const a = (i / RING_COUNT) * Math.PI * 2;
         return (
           <group key={i} position={[Math.sin(a) * radius, Math.sin(i * 1.3) * 0.15, Math.cos(a) * radius]} rotation={[0, a, Math.sin(i) * 0.08]} scale={0.3}>
-            <CardMesh accent={i % 2 ? '#9333ea' : '#ef4444'} glow={1.2} />
+            <CardMesh deckId={deckId} accent={themeOf(deckId).ring[i % 2]} glow={1.2} />
           </group>
         );
       })}
@@ -264,7 +264,7 @@ const useCardView = () => {
   return { width: v.width, height: v.height, scale, y: v.height * 0.035 };
 };
 
-const World = ({ mode, card, verdict, exitType, drag }) => {
+const World = ({ mode, deckId, card, verdict, exitType, drag }) => {
   const view = useCardView();
   const [cards, setCards] = useState([]);
   const [deckUp, setDeckUp] = useState(false);
@@ -299,8 +299,8 @@ const World = ({ mode, card, verdict, exitType, drag }) => {
       <fog attach="fog" args={['#0a0a0a', 9, 22]} />
       <MovingLights />
 
-      <Deck visible={mode === 'playing'} raised={deckUp} />
-      <CardRing mode={mode} view={view} />
+      <Deck visible={mode === 'playing'} raised={deckUp} deckId={deckId} />
+      <CardRing mode={mode} view={view} deckId={deckId} />
       {cards.map((c) => (
         <ActiveCard
           key={c.key}
@@ -342,14 +342,14 @@ const World = ({ mode, card, verdict, exitType, drag }) => {
   );
 };
 
-const Scene = ({ mode, card, verdict, exitType, drag }) => (
+const Scene = ({ mode, deckId = 'chuto15', card, verdict, exitType, drag }) => (
   <Canvas
     className="!fixed inset-0"
     dpr={[1, 2]}
     gl={{ antialias: true, powerPreference: 'high-performance' }}
     camera={{ position: [0, 0.4, 8], fov: 38 }}
   >
-    <World mode={mode} card={card} verdict={verdict} exitType={exitType} drag={drag} />
+    <World mode={mode} deckId={deckId} card={card} verdict={verdict} exitType={exitType} drag={drag} />
   </Canvas>
 );
 
