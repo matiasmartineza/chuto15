@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Flame, Wine, UserPlus, Play, RotateCcw, Trophy, X, Check, Heart, Crown, Sparkles, Shuffle, AlertTriangle, ShieldX } from 'lucide-react';
+import { Wine, UserPlus, Play, RotateCcw, Trophy, X, Check, Shuffle, AlertTriangle, ShieldX, Volume2, VolumeX, Timer } from 'lucide-react';
+import Confetti from './Confetti.jsx';
+import * as sfx from './sound.js';
 
 const WIN_SCORE = 400;
 const REPEAT_DECAY = 1 / 4; // cada vez que sale un reto, su probabilidad se multiplica por 1/4
@@ -230,37 +232,115 @@ const pickPartnerIndex = (playerCount, excludeIdx) => {
   return idx;
 };
 
+const AVATARS = ['🦊', '🐙', '🦄', '🐸', '🐼', '🦁', '🐲', '🦖', '🐵', '🦩', '🐝', '👾'];
+const COLORS = ['#ff3d81', '#00d4ff', '#ffd60a', '#7cff4d', '#b44dff', '#ff7a00', '#00ffb3', '#ff5252'];
+const FLOATIES = ['🔥', '💋', '🍹', '✨', '😈', '🎉', '🥂', '💃', '🌶️', '💥', '🎲', '🍑'];
+const TIMER_SECONDS = 15;
+
+const INTENSITY = {
+  soft: { label: 'Para calentar', emoji: '😉', grad: 'from-sky-500 via-blue-600 to-indigo-700', glow: '#38bdf8' },
+  medium: { label: 'Nivel medio', emoji: '😈', grad: 'from-orange-500 via-pink-600 to-purple-700', glow: '#fb7185' },
+  hard: { label: 'Prueba extrema', emoji: '🔥', grad: 'from-rose-600 via-red-600 to-fuchsia-800', glow: '#ff3d3d' },
+};
+
+const Btn = ({ c, d, t, className = '', children, ...rest }) => (
+  <button
+    {...rest}
+    style={{ '--c': c, '--d': d, '--t': t }}
+    className={`btn3d rounded-2xl flex flex-col items-center justify-center text-center ${className}`}
+  >
+    {children}
+  </button>
+);
+
 const App = () => {
   const [gameState, setGameState] = useState('consent');
   const [players, setPlayers] = useState([]);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [currentChallenge, setCurrentChallenge] = useState(null);
-  
+
   // ESTADOS DE NEGOCIACIÓN Y PARTNER
   const [isNegotiated, setIsNegotiated] = useState(false);
-  const [negotiatedStakes, setNegotiatedStakes] = useState(null); 
-  const [partnerPlayerIndex, setPartnerPlayerIndex] = useState(null); // Índice del partner aleatorio
+  const [negotiatedStakes, setNegotiatedStakes] = useState(null);
+  const [partnerPlayerIndex, setPartnerPlayerIndex] = useState(null);
   const [nameError, setNameError] = useState('');
+
+  // ESTADOS VISUALES / SONIDO
+  const [muted, setMuted] = useState(false);
+  const [cardKey, setCardKey] = useState(0);
+  const [pops, setPops] = useState([]);
+  const [shaking, setShaking] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
+  const [timerRunning, setTimerRunning] = useState(false);
 
   // Multiplicador de probabilidad por reto (baja a 1/4 cada vez que sale)
   const repeatMultipliers = useRef(BASE_CHALLENGES.map(() => 1));
+  const avatarSeed = useRef(0);
+  const popId = useRef(0);
+  const confettiRef = useRef(null);
+
+  // --- EFECTOS VISUALES ---
+  const addPop = (text, color, delay = 0) => {
+    const id = popId.current++;
+    setTimeout(() => {
+      setPops((p) => [...p, { id, text, color }]);
+      setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1500);
+    }, delay);
+  };
+  const vibrate = (pattern) => { if (!muted && navigator.vibrate) navigator.vibrate(pattern); };
+  const shake = () => { setShaking(true); setTimeout(() => setShaking(false), 500); };
+  const burstAt = (e, n = 80) => {
+    const x = e && e.clientX ? e.clientX : window.innerWidth / 2;
+    const y = e && e.clientY ? e.clientY : window.innerHeight / 2;
+    confettiRef.current && confettiRef.current.burst(x, y, n);
+  };
+  const toggleMute = () => { sfx.setMuted(!muted); setMuted(!muted); if (muted) sfx.tap(); };
+
+  // Temporizador de reto
+  useEffect(() => { setTimerRunning(false); setTimeLeft(TIMER_SECONDS); }, [cardKey]);
+  useEffect(() => {
+    if (!timerRunning) return;
+    const id = setInterval(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearInterval(id);
+  }, [timerRunning]);
+  useEffect(() => {
+    if (!timerRunning) return;
+    if (timeLeft <= 0) { setTimerRunning(false); sfx.buzzer(); vibrate([200, 80, 200]); shake(); }
+    else if (timeLeft <= 5) sfx.tick();
+  }, [timeLeft, timerRunning]);
+
+  // Celebración al ganar
+  useEffect(() => {
+    if (gameState === 'winner') {
+      sfx.win();
+      confettiRef.current && confettiRef.current.rain(7000);
+    }
+  }, [gameState]);
 
   // --- LOGICA DE CONFIGURACIÓN ---
   const addPlayer = () => {
     const name = newPlayerName.trim();
     if (name === '') return;
-    if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    if (players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
       setNameError('Ya hay un jugador con ese nombre.');
+      sfx.refuse();
       return;
     }
     setNameError('');
-    setPlayers([...players, { name, score: 0, sips: 0 }]);
+    const seed = avatarSeed.current++;
+    setPlayers([...players, {
+      name, score: 0, sips: 0,
+      emoji: AVATARS[seed % AVATARS.length],
+      color: COLORS[seed % COLORS.length],
+    }]);
     setNewPlayerName('');
+    sfx.join();
   };
 
   const removePlayer = (index) => {
     setPlayers(players.filter((_, i) => i !== index));
+    sfx.tap();
   };
 
   const startGame = () => {
@@ -268,7 +348,6 @@ const App = () => {
     repeatMultipliers.current = BASE_CHALLENGES.map(() => 1);
     setCurrentPlayerIndex(0);
     setGameState('playing');
-    // Para iniciar el juego, usamos el índice 0 y seleccionamos un reto y partner
     pickChallenge(0, players);
   };
 
@@ -276,16 +355,17 @@ const App = () => {
   const pickChallenge = (playerIdx, currentPlayers) => {
     setIsNegotiated(false);
     setNegotiatedStakes(null);
-    setPartnerPlayerIndex(null); // Resetear partner
+    setPartnerPlayerIndex(null);
+    setCardKey((k) => k + 1);
+    sfx.flip();
 
-    // 1. Elegir Reto (los ya salidos pesan 1/4 cada vez que aparecen)
+    // Los ya salidos pesan 1/4 cada vez que aparecen
     const idx = weightedPick(repeatMultipliers.current);
     repeatMultipliers.current[idx] *= REPEAT_DECAY;
     const selectedChallenge = BASE_CHALLENGES[idx];
     setCurrentChallenge(selectedChallenge);
 
-    // 2. Elegir Partner (Solo si el reto tiene el placeholder {partner})
-    if (currentPlayers.length > 1 && selectedChallenge.text.includes("{partner}")) {
+    if (currentPlayers.length > 1 && selectedChallenge.text.includes('{partner}')) {
       setPartnerPlayerIndex(pickPartnerIndex(currentPlayers.length, playerIdx));
     }
   };
@@ -294,19 +374,10 @@ const App = () => {
   const handleNegotiate = () => {
     if (!currentChallenge) return;
 
-    // 1. STAKES FIJOS BASADOS EN LA PREGUNTA ORIGINAL
     const fixedPoints = Math.floor(currentChallenge.points * 1.5);
-    
-    // USAR NUEVA FUNCIÓN DE CÁLCULO DE SORBOS
-    const currentSips = calculateSips(currentChallenge);
-    const fixedSips = currentSips * 2; // Doble castigo al negociar
+    const fixedSips = calculateSips(currentChallenge) * 2; // Doble castigo al negociar
+    setNegotiatedStakes({ points: fixedPoints, sips: fixedSips });
 
-    setNegotiatedStakes({
-      points: fixedPoints,
-      sips: fixedSips
-    });
-
-    // 2. SELECCIONAR NUEVA PREGUNTA (CON PROBABILIDAD PONDERADA)
     // Pesos: Hard=5, Medium=3, Soft=1, multiplicados por el decaimiento de repetición
     const currentIdx = BASE_CHALLENGES.indexOf(currentChallenge);
     const weights = BASE_CHALLENGES.map((challenge, index) => {
@@ -319,14 +390,17 @@ const App = () => {
     const newChallenge = BASE_CHALLENGES[randomIndex];
     setCurrentChallenge(newChallenge);
     setIsNegotiated(true);
+    setCardKey((k) => k + 1);
 
-    // Re-evaluar Partner si la nueva pregunta lo requiere y no tenemos uno
-    if (players.length > 1 && newChallenge.text.includes("{partner}") && partnerPlayerIndex === null) {
-        setPartnerPlayerIndex(pickPartnerIndex(players.length, currentPlayerIndex));
-    } else if (!newChallenge.text.includes("{partner}")) {
-        // Si la nueva no requiere partner, limpiamos
-        setPartnerPlayerIndex(null);
+    if (players.length > 1 && newChallenge.text.includes('{partner}') && partnerPlayerIndex === null) {
+      setPartnerPlayerIndex(pickPartnerIndex(players.length, currentPlayerIndex));
+    } else if (!newChallenge.text.includes('{partner}')) {
+      setPartnerPlayerIndex(null);
     }
+
+    sfx.negotiate();
+    vibrate([60, 40, 60, 40, 120]);
+    addPop('🎲 ¡DOBLE RIESGO!', '#ffd60a');
   };
 
   // Stakes actuales (negociados o normales)
@@ -340,7 +414,7 @@ const App = () => {
   // Guarda los jugadores actualizados y, o termina la partida, o pasa el turno
   const finishTurn = (updatedPlayers) => {
     setPlayers(updatedPlayers);
-    if (updatedPlayers.some(p => p.score >= WIN_SCORE)) {
+    if (updatedPlayers.some((p) => p.score >= WIN_SCORE)) {
       setGameState('winner');
       return;
     }
@@ -350,26 +424,49 @@ const App = () => {
   // --- PARTNER REFUSAL ---
   const handlePartnerRefusal = () => {
     const { points, sips } = getCurrentStakes();
+    const mine = Math.floor(points / 2);
+    const theirs = Math.ceil(sips / 2);
+    const me = players[currentPlayerIndex];
+    const partner = players[partnerPlayerIndex];
     const newPlayers = players.map((p, i) => {
-      if (i === currentPlayerIndex) return { ...p, score: p.score + Math.floor(points / 2) };
-      if (i === partnerPlayerIndex) return { ...p, sips: p.sips + Math.ceil(sips / 2) };
+      if (i === currentPlayerIndex) return { ...p, score: p.score + mine };
+      if (i === partnerPlayerIndex) return { ...p, sips: p.sips + theirs };
       return p;
     });
+    sfx.refuse();
+    vibrate([40, 30, 40]);
+    addPop('🛡️ ¡SE OPONE!', '#ff9f1c');
+    addPop(`${me.emoji} +${mine} ⭐`, '#7cff4d', 250);
+    addPop(`${partner.emoji} bebe ${theirs} 🥃`, '#ff5c8a', 500);
     finishTurn(newPlayers);
   };
 
-  const handleResult = (success) => {
+  const handleResult = (success, e) => {
     const { points, sips } = getCurrentStakes();
+    const me = players[currentPlayerIndex];
     const newPlayers = players.map((p, i) => {
       if (success) {
         if (i === currentPlayerIndex) return { ...p, score: p.score + points };
-        // Partner gana mitad de puntos si el reto fue exitoso
         if (i === partnerPlayerIndex) return { ...p, score: p.score + Math.floor(points / 2) };
       } else if (i === currentPlayerIndex) {
         return { ...p, sips: p.sips + sips };
       }
       return p;
     });
+    if (success) {
+      sfx.success();
+      vibrate([30, 30, 80]);
+      burstAt(e, 90);
+      addPop(`${me.emoji} +${points} ⭐`, '#7cff4d');
+      if (partnerPlayerIndex !== null) {
+        addPop(`${players[partnerPlayerIndex].emoji} +${Math.floor(points / 2)} ⭐`, '#00d4ff', 300);
+      }
+    } else {
+      sfx.fail();
+      vibrate([200, 60, 200]);
+      shake();
+      addPop(`${me.emoji} bebe ${sips} 🥃`, '#ff5c8a');
+    }
     finishTurn(newPlayers);
   };
 
@@ -380,7 +477,8 @@ const App = () => {
   };
 
   const restartGame = () => {
-    setPlayers(players.map(p => ({ ...p, score: 0, sips: 0 })));
+    sfx.tap();
+    setPlayers(players.map((p) => ({ ...p, score: 0, sips: 0 })));
     setGameState('setup');
     setCurrentPlayerIndex(0);
     setCurrentChallenge(null);
@@ -392,344 +490,351 @@ const App = () => {
 
   const getDisplayStakes = () => {
     if (isNegotiated && negotiatedStakes) {
-      return {
-        win: negotiatedStakes.points,
-        loseSips: negotiatedStakes.sips,
-        label: "DOBLE RIESGO (FIJO)"
-      };
+      return { win: negotiatedStakes.points, loseSips: negotiatedStakes.sips };
     }
-    // USAR NUEVA FUNCIÓN PARA DISPLAY
-    const normalSips = calculateSips(currentChallenge);
     return {
       win: currentChallenge ? currentChallenge.points : 0,
-      loseSips: normalSips,
-      label: "NORMAL"
+      loseSips: calculateSips(currentChallenge),
     };
   };
 
   const stakes = getDisplayStakes();
   const drinkType = isDrinkChallenge(currentChallenge);
+  const level = currentChallenge ? INTENSITY[currentChallenge.intensity] : INTENSITY.soft;
+  const me = players[currentPlayerIndex];
+  const partner = partnerPlayerIndex !== null ? players[partnerPlayerIndex] : null;
 
-  // Helper para renderizar el texto del reto con el nombre del partner
-  const getChallengeText = () => {
-    if (!currentChallenge) return "";
-    
-    // Si hay partner y el texto tiene el placeholder, lo reemplazamos
-    if (partnerPlayerIndex !== null && currentChallenge.text.includes("{partner}")) {
-        const partnerName = players[partnerPlayerIndex].name;
-        return currentChallenge.text.split("{partner}").join(partnerName);
-    }
-    
-    return currentChallenge.text;
+  // Texto del reto con el nombre del partner resaltado
+  const renderChallengeText = () => {
+    if (!currentChallenge) return null;
+    const parts = currentChallenge.text.split('{partner}');
+    if (!partner) return parts.join('');
+    return parts.map((part, i) => (
+      <React.Fragment key={i}>
+        {part}
+        {i < parts.length - 1 && (
+          <span
+            className="inline-block px-2 mx-0.5 rounded-lg text-black wobble"
+            style={{ background: partner.color }}
+          >
+            {partner.emoji} {partner.name}
+          </span>
+        )}
+      </React.Fragment>
+    ));
   };
+
+  const sorted = [...players].sort((a, b) => b.score - a.score);
 
   // --- RENDERIZADO ---
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-red-500 selection:text-white overflow-x-hidden">
-      {/* Fondo Dinámico */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-red-900/30 rounded-full blur-[100px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-900/20 rounded-full blur-[100px] animate-pulse delay-700"></div>
+    <div className={`min-h-screen bg-live text-white overflow-x-hidden relative ${shaking ? 'shake' : ''}`}>
+      <Confetti ref={confettiRef} />
+
+      {/* Fondo vivo */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="blob w-80 h-80 bg-pink-500 -top-20 -left-20" />
+        <div className="blob w-96 h-96 bg-cyan-400 top-1/3 -right-32" style={{ animationDelay: '-4s' }} />
+        <div className="blob w-72 h-72 bg-yellow-400 bottom-0 left-1/4" style={{ animationDelay: '-8s' }} />
+        {FLOATIES.map((f, i) => (
+          <span
+            key={i}
+            className="floaty"
+            style={{ left: `${(i * 8.7) % 96}%`, animationDuration: `${14 + (i % 5) * 4}s`, animationDelay: `${-i * 2.3}s` }}
+          >{f}</span>
+        ))}
+      </div>
+
+      {/* Popups flotantes */}
+      <div className="fixed inset-x-0 top-[28%] z-40 flex flex-col items-center gap-2 pointer-events-none">
+        {pops.map((p) => (
+          <div
+            key={p.id}
+            className="pop-up font-display text-2xl sm:text-3xl px-4 py-1 rounded-full bg-black/70 border-2"
+            style={{ color: p.color, borderColor: p.color, textShadow: `0 0 14px ${p.color}` }}
+          >{p.text}</div>
+        ))}
       </div>
 
       <div className="relative z-10 max-w-md mx-auto min-h-screen flex flex-col p-4">
-        
+
         {/* HEADER */}
-        <header className="flex justify-center items-center py-6 mb-4">
-          <h1 className="text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-purple-600 drop-shadow-[0_0_10px_rgba(220,38,38,0.5)] italic transform -skew-x-6">
-            CHUTO<span className="text-white">15</span>
+        <header className="flex justify-between items-center py-3 mb-2">
+          <div className="w-10" />
+          <h1 className="font-display text-4xl tracking-wide select-none" aria-label="Chuto 15">
+            {'CHUTO'.split('').map((l, i) => (
+              <span key={i} className="letter rainbow-text" style={{ animationDelay: `${i * 0.12}s` }}>{l}</span>
+            ))}
+            <span className="letter text-white text-outline wobble" style={{ animationDelay: '.7s' }}>15</span>
           </h1>
+          <button
+            onClick={toggleMute}
+            aria-label={muted ? 'Activar sonido' : 'Silenciar'}
+            className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors"
+          >
+            {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
         </header>
 
-        {/* PANTALLA DE AVISO +18 */}
+        {/* AVISO +18 */}
         {gameState === 'consent' && (
-          <div className="flex-1 flex flex-col gap-6 animate-in fade-in zoom-in duration-500">
-            <div className="bg-neutral-900/60 backdrop-blur-md border border-neutral-800 p-6 rounded-2xl shadow-2xl text-center">
-              <div className="text-5xl font-black text-red-500 mb-3">+18</div>
-              <h2 className="text-xl font-bold mb-4 text-red-400">Contenido para adultos</h2>
-              <ul className="text-neutral-300 text-sm space-y-2 text-left list-disc pl-5">
-                <li>Este juego contiene retos sexuales y de consumo de alcohol.</li>
-                <li>Solo para mayores de 18 años.</li>
-                <li>Todos los jugadores deben estar de acuerdo en participar.</li>
-                <li>Cualquiera puede negarse a un reto en cualquier momento. Nadie debe sentirse presionado.</li>
-                <li>Bebe con moderación y no conduzcas.</li>
+          <div className="flex-1 flex flex-col justify-center gap-6">
+            <div className="pop-in bg-black/40 backdrop-blur-md border-2 border-pink-400/60 rounded-3xl p-6 text-center shadow-[0_0_40px_rgba(255,61,129,.35)]">
+              <div className="text-7xl wobble inline-block mb-2">🔞</div>
+              <h2 className="font-display text-3xl text-pink-300 mb-4">Solo adultos</h2>
+              <ul className="text-white/90 text-base space-y-2 text-left">
+                <li>🍻 Retos sexuales y de beber alcohol.</li>
+                <li>🪪 Solo para mayores de 18 años.</li>
+                <li>🤝 Todos tienen que estar de acuerdo en jugar.</li>
+                <li>🙅 Cualquiera puede negarse a un reto, sin presión.</li>
+                <li>🚕 Toma con moderación y no conduzcas.</li>
               </ul>
             </div>
-            <button
-              onClick={() => setGameState('setup')}
-              className="w-full bg-gradient-to-r from-red-600 to-purple-700 hover:from-red-500 hover:to-purple-600 text-white font-bold py-4 rounded-2xl text-lg shadow-[0_0_20px_rgba(220,38,38,0.4)] transition-all"
+            <Btn
+              c="#ff3d81" d="#a3004a"
+              onClick={() => { sfx.unlock(); sfx.success(); setGameState('setup'); }}
+              className="pulse-big w-full py-5 text-xl"
             >
               Soy mayor de 18 y todos aceptamos jugar
-            </button>
+            </Btn>
           </div>
         )}
 
-        {/* PANTALLA DE SETUP */}
+        {/* SETUP */}
         {gameState === 'setup' && (
-          <div className="flex-1 flex flex-col gap-6 animate-in fade-in zoom-in duration-500">
-            <div className="bg-neutral-900/60 backdrop-blur-md border border-neutral-800 p-6 rounded-2xl shadow-2xl">
-              <h2 className="text-xl font-bold mb-4 text-center text-red-400 flex items-center justify-center gap-2">
-                <Flame size={20} /> Registro de Jugadores
+          <div className="flex-1 flex flex-col gap-5">
+            <div className="pop-in bg-black/35 backdrop-blur-md border-2 border-cyan-300/50 rounded-3xl p-5 shadow-[0_0_35px_rgba(0,212,255,.25)]">
+              <h2 className="font-display text-2xl text-cyan-300 mb-4 text-center flex items-center justify-center gap-2">
+                <span className="bounce-y inline-block">🎤</span> ¿Quiénes juegan?
               </h2>
-              
-              <div className="flex gap-2 mb-6">
+              <div className="flex gap-2 mb-2">
                 <input
                   type="text"
                   value={newPlayerName}
                   onChange={(e) => { setNewPlayerName(e.target.value); setNameError(''); }}
                   onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-                  placeholder="Nombre..."
-                  className="flex-1 bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors text-lg"
+                  placeholder="Escribe un nombre…"
+                  maxLength={16}
+                  className="flex-1 min-w-0 bg-white/10 border-2 border-white/20 rounded-2xl px-4 py-3 text-lg placeholder:text-white/40 focus:outline-none focus:border-cyan-300 transition-colors"
                 />
-                <button 
-                  onClick={addPlayer}
-                  className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-xl transition-all active:scale-95"
-                >
-                  <UserPlus size={24} />
-                </button>
+                <Btn c="#00d4ff" d="#007a99" t="#00212b" onClick={addPlayer} aria-label="Añadir jugador" className="w-14">
+                  <UserPlus size={26} />
+                </Btn>
               </div>
+              {nameError && <p className="text-pink-300 text-sm mb-2">{nameError}</p>}
 
-              {nameError && <p className="text-red-400 text-sm mb-3 -mt-3">{nameError}</p>}
-
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="flex flex-wrap gap-2 mt-4 min-h-[56px]">
                 {players.map((p, i) => (
-                  <div key={i} className="flex justify-between items-center bg-neutral-800/50 p-3 rounded-lg border border-neutral-700/50">
-                    <span className="font-medium text-lg">{p.name}</span>
-                    <button onClick={() => removePlayer(i)} className="text-neutral-500 hover:text-red-500">
-                      <X size={20} />
+                  <div
+                    key={p.name}
+                    className="pop-in flex items-center gap-2 pl-2 pr-1 py-1 rounded-full text-black font-bold"
+                    style={{ background: p.color, animationDelay: `${i * 0.03}s` }}
+                  >
+                    <span className="text-2xl">{p.emoji}</span>
+                    <span className="text-lg">{p.name}</span>
+                    <button onClick={() => removePlayer(i)} aria-label={`Quitar a ${p.name}`} className="w-7 h-7 rounded-full bg-black/25 hover:bg-black/45 text-white flex items-center justify-center">
+                      <X size={16} />
                     </button>
                   </div>
                 ))}
-                {players.length === 0 && <p className="text-center text-neutral-600 italic">Añade jugadores para empezar...</p>}
+                {players.length === 0 && <p className="text-white/50 italic m-auto">Añade jugadores para empezar…</p>}
               </div>
             </div>
 
             {players.length >= 2 ? (
-              <button 
-                onClick={startGame}
-                className="w-full bg-gradient-to-r from-red-600 to-purple-700 hover:from-red-500 hover:to-purple-600 text-white font-bold py-4 rounded-2xl text-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] flex items-center justify-center gap-3 transition-all transform hover:scale-105"
-              >
-                <Play fill="currentColor" /> COMENZAR JUEGO
-              </button>
+              <Btn c="#7cff4d" d="#2f9a00" t="#10300a" onClick={() => { sfx.unlock(); startGame(); }} className="pulse-big w-full py-5 text-2xl font-display">
+                <span className="flex items-center gap-3"><Play fill="currentColor" /> ¡A JUGAR!</span>
+              </Btn>
             ) : (
-                 <div className="text-center text-neutral-500 text-sm p-2">
-                    Necesitas al menos 2 jugadores para la tensión
-                 </div>
+              <div className="text-center text-white/60 text-sm p-2">Necesitas al menos 2 jugadores para la tensión 😏</div>
             )}
           </div>
         )}
 
-        {/* PANTALLA DE JUEGO */}
-        {gameState === 'playing' && currentChallenge && (
-          <div className="flex-1 flex flex-col justify-between animate-in slide-in-from-bottom duration-500">
-            
-            {/* Barra Superior */}
-            <div className="flex justify-between items-center bg-neutral-900/80 rounded-full px-4 py-2 border border-neutral-800 mb-6">
-              <div className="flex flex-col">
-                 <span className="text-sm text-neutral-400">Turno de:</span>
-                 <span className="text-xl font-bold text-red-400 leading-none">{players[currentPlayerIndex].name}</span>
+        {/* JUEGO */}
+        {gameState === 'playing' && currentChallenge && me && (
+          <div className="flex-1 flex flex-col gap-2.5">
+
+            {/* Carrera hacia 400 */}
+            <div className="bg-black/35 backdrop-blur-sm rounded-2xl p-2 border border-white/15">
+              <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-white/60 px-1 mb-1">
+                <span>🏁 Carrera a {WIN_SCORE}</span>
+                <span>🥃 sorbos</span>
               </div>
-              <div className="text-right">
-                <span className="text-xs bg-neutral-800 px-2 py-1 rounded text-neutral-300 block">
-                    Puntuación
-                </span>
-                <span className="text-lg font-bold text-white">{players[currentPlayerIndex].score} pts</span>
+              <div className="space-y-1 max-h-28 overflow-y-auto">
+                {players.map((p, i) => {
+                  const pct = Math.min(100, (p.score / WIN_SCORE) * 100);
+                  const active = i === currentPlayerIndex;
+                  return (
+                    <div key={p.name} className="flex items-center gap-2">
+                      <div className={`relative flex-1 h-7 rounded-full bg-white/10 overflow-hidden ${active ? 'ring-2 ring-white lane-active' : ''}`}>
+                        <div
+                          className="lane-fill absolute inset-y-0 left-0 rounded-full flex items-center justify-end pr-1"
+                          style={{ width: `max(${pct}%, 2rem)`, background: `linear-gradient(90deg, ${p.color}55, ${p.color})` }}
+                        >
+                          <span className="text-lg leading-none">{p.emoji}</span>
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-between px-3 text-sm font-bold text-outline pointer-events-none">
+                          <span className="truncate">{p.name}</span>
+                          <span>{p.score}</span>
+                        </div>
+                      </div>
+                      <span className="w-9 text-right text-sm font-bold text-pink-300">{p.sips}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Tarjeta de Desafío */}
-            <div className="relative group perspective mb-4">
-              <div className={`absolute inset-0 bg-gradient-to-br ${
-                  isNegotiated ? 'from-yellow-600 to-orange-600' :
-                  'from-red-600 to-purple-600'
-                } rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity duration-500`}></div>
-              
-              <div className="relative bg-neutral-900/80 backdrop-blur-xl border border-red-500/30 p-6 md:p-8 rounded-3xl shadow-2xl text-center min-h-[280px] flex flex-col justify-center items-center gap-4">
-                
-                {/* Header de la Tarjeta */}
-                <div className="flex items-center justify-between w-full mb-2">
-                        <div className={`p-2 rounded-full ${
-                        currentChallenge.intensity === 'hard' ? 'bg-red-500/20 text-red-500' : 
-                        currentChallenge.intensity === 'medium' ? 'bg-purple-500/20 text-purple-500' : 
-                        'bg-pink-500/20 text-pink-500'
-                        }`}>
-                        {currentChallenge.intensity === 'hard' ? <Flame size={20} fill="currentColor" /> : 
-                        currentChallenge.intensity === 'medium' ? <Heart size={20} fill="currentColor" /> : 
-                        <Sparkles size={20} />}
-                        </div>
-                        
-                        {isNegotiated && (
-                            <div className="flex items-center gap-1 bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/50 animate-pulse">
-                                <AlertTriangle size={12} /> RIESGO ACTIVO
-                            </div>
-                        )}
-                </div>
+            {/* Turno */}
+            <div key={`turn-${currentPlayerIndex}-${cardKey}`} className="slam flex items-center justify-center gap-3">
+              <span className="text-4xl bounce-y">{me.emoji}</span>
+              <div className="leading-none">
+                <div className="text-xs uppercase tracking-[0.25em] text-white/70 font-bold">Turno de</div>
+                <div className="font-display text-2xl text-outline" style={{ color: me.color }}>{me.name}</div>
+              </div>
+            </div>
 
-                <div className="w-full">
-                    <span className="uppercase tracking-widest text-xs font-bold text-neutral-500 mb-2 block">
-                    {isNegotiated ? '⚠️ REGLAS NEGOCIADAS ⚠️' :
-                        currentChallenge.intensity === 'hard' ? 'Prueba Extrema' : 
-                        currentChallenge.intensity === 'medium' ? 'Nivel Medio' : 
-                        'Para Calentar'}
+            {/* Tarjeta del reto */}
+            <div key={cardKey} className="card-flip">
+              <div
+                className="rounded-[2rem] p-[3px]"
+                style={{
+                  background: isNegotiated
+                    ? 'linear-gradient(135deg,#fde047,#fb923c,#ef4444)'
+                    : 'linear-gradient(135deg,rgba(255,255,255,.7),rgba(255,255,255,.1))',
+                  boxShadow: `0 0 45px ${isNegotiated ? '#fbbf24' : level.glow}99`,
+                }}
+              >
+                <div className={`relative overflow-hidden shine rounded-[1.9rem] bg-gradient-to-br ${level.grad} ${isNegotiated ? 'hazard' : ''} px-5 py-5 min-h-[190px] flex flex-col items-center justify-center text-center gap-2`}>
+                  <div className="flex items-center justify-between w-full">
+                    <span className="inline-flex items-center gap-1 bg-black/35 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest">
+                      {drinkType ? '🍻 Bebe o no' : `${level.emoji} ${level.label}`}
                     </span>
-                    <h3 className="text-xl md:text-2xl font-bold leading-snug break-words">
-                    {getChallengeText()}
-                    </h3>
-                </div>
-                
-                {/* STAKES DISPLAY */}
-                <div className="flex gap-4 mt-2 w-full justify-center">
-                    <div className="flex-1 bg-neutral-950/50 py-2 rounded-lg border border-neutral-800 flex flex-col items-center">
-                        <span className="text-[10px] uppercase text-neutral-500 font-bold">Premio</span>
-                        <div className="flex flex-col items-center">
-                            <span className="text-green-400 font-bold text-lg">+{stakes.win} pts</span>
-                            {isNegotiated && <span className="text-[9px] text-yellow-500 leading-none">(Fijo x1.5)</span>}
-                            {partnerPlayerIndex !== null && <span className="text-[9px] text-green-600 mt-1">Partner: +{Math.floor(stakes.win/2)}</span>}
-                        </div>
+                    {isNegotiated && (
+                      <span className="inline-flex items-center gap-1 bg-yellow-300 text-black rounded-full px-3 py-1 text-xs font-extrabold pulse-big">
+                        <AlertTriangle size={13} /> RIESGO x2
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-5xl wobble drop-shadow-lg leading-none">{drinkType ? '🍻' : level.emoji}</div>
+
+                  <h3 className="text-xl sm:text-2xl font-bold leading-snug text-outline break-words">
+                    {renderChallengeText()}
+                  </h3>
+
+                  <div className="flex gap-3 w-full justify-center mt-1">
+                    <div className="flex-1 bg-black/40 rounded-2xl py-2 border border-lime-300/50">
+                      <div className="text-[10px] uppercase font-bold text-lime-200/80">Premio</div>
+                      <div className="font-display text-xl text-lime-300">⭐ +{stakes.win}</div>
+                      {partner && <div className="text-[10px] text-lime-100/80">{partner.emoji} +{Math.floor(stakes.win / 2)}</div>}
                     </div>
-                    <div className="flex-1 bg-neutral-950/50 py-2 rounded-lg border border-neutral-800 flex flex-col items-center">
-                        <span className="text-[10px] uppercase text-neutral-500 font-bold">Castigo</span>
-                        <div className="flex flex-col items-center">
-                            <span className="text-red-500 font-bold text-lg flex items-center gap-1">
-                                <Wine size={14} /> {stakes.loseSips}
-                            </span>
-                            {isNegotiated && <span className="text-[9px] text-yellow-500 leading-none">(Fijo x2)</span>}
-                            {partnerPlayerIndex !== null && <span className="text-[9px] text-red-700 mt-1">Refusal: {Math.ceil(stakes.loseSips/2)}</span>}
-                        </div>
+                    <div className="flex-1 bg-black/40 rounded-2xl py-2 border border-pink-300/50">
+                      <div className="text-[10px] uppercase font-bold text-pink-200/80">Castigo</div>
+                      <div className="font-display text-xl text-pink-300">🥃 {stakes.loseSips}</div>
+                      {partner && <div className="text-[10px] text-pink-100/80">si se opone: {Math.ceil(stakes.loseSips / 2)}</div>}
                     </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Acciones Principales */}
-            <div className={`grid gap-2 mb-4 ${partnerPlayerIndex !== null ? 'grid-cols-2' : 'grid-cols-3'}`}>
-            
-                {/* BOTÓN CASTIGO (Acción directa) */}
-                <button 
-                    onClick={() => handleResult(false)}
-                    className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 p-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 border border-neutral-700 transition-colors h-24"
-                >
-                    <Wine className="text-red-500" size={24} />
-                    <span className="text-sm">{drinkType ? 'Me niego' : 'Castigo'}</span>
-                    <span className="text-[10px] opacity-60 text-center leading-tight">
-                        Beber {stakes.loseSips} sorbos
-                    </span>
-                </button>
+            {/* Temporizador */}
+            <button
+              onClick={() => { sfx.tap(); if (timerRunning) { setTimerRunning(false); setTimeLeft(TIMER_SECONDS); } else { setTimeLeft(TIMER_SECONDS); setTimerRunning(true); } }}
+              className="relative h-9 rounded-full bg-white/10 border border-white/20 overflow-hidden font-bold text-sm"
+            >
+              <div
+                className="absolute inset-y-0 left-0 transition-all duration-1000 ease-linear"
+                style={{
+                  width: timerRunning ? `${(Math.max(timeLeft, 0) / TIMER_SECONDS) * 100}%` : '0%',
+                  background: timeLeft <= 5 ? '#ff3d3d' : 'linear-gradient(90deg,#00d4ff,#7cff4d)',
+                }}
+              />
+              <span className="relative flex items-center justify-center gap-2 text-outline">
+                <Timer size={16} />
+                {timerRunning ? `${Math.max(timeLeft, 0)} s (toca para parar)` : `¡Cuenta atrás de ${TIMER_SECONDS} s!`}
+              </span>
+            </button>
 
-                {/* BOTÓN PARTNER REFUSAL (Solo si hay partner) */}
-                {partnerPlayerIndex !== null && (
-                    <button 
-                        onClick={handlePartnerRefusal}
-                        className="bg-orange-900/40 hover:bg-orange-900/60 border border-orange-700/50 text-orange-200 p-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors h-24"
-                    >
-                        <ShieldX className="text-orange-500" size={24} />
-                        <span className="text-sm">Se Opone</span>
-                        <span className="text-[10px] opacity-60 text-center leading-tight">
-                            {players[partnerPlayerIndex].name} tomará {Math.ceil(stakes.loseSips / 2)} sorbos
-                        </span>
-                    </button>
+            {/* Acciones */}
+            <div className="flex flex-col gap-3 mt-1 pb-2">
+              <Btn c="#7cff4d" d="#2f9a00" t="#0d2b06" onClick={(e) => handleResult(true, e)} className="w-full py-3">
+                <span className="flex items-center gap-2 font-display text-2xl"><Check strokeWidth={4} /> {drinkType ? 'BEBÍ / NO APLICA' : '¡HECHO!'}</span>
+                <span className="text-xs opacity-80">Ganas {stakes.win} ⭐</span>
+              </Btn>
+
+              <div className={`grid gap-3 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <Btn c="#ff3d81" d="#a3004a" onClick={(e) => handleResult(false, e)} className="h-20 px-1">
+                  <Wine size={24} />
+                  <span className="text-sm">{drinkType ? 'Me niego' : 'Castigo'}</span>
+                  <span className="text-[10px] opacity-80 leading-tight">Bebes {stakes.loseSips} 🥃</span>
+                </Btn>
+
+                {partner && (
+                  <Btn c="#ff9f1c" d="#a35a00" t="#2b1600" onClick={handlePartnerRefusal} className="h-20 px-1">
+                    <ShieldX size={24} />
+                    <span className="text-sm">Se opone</span>
+                    <span className="text-[10px] opacity-80 leading-tight">{partner.name} bebe {Math.ceil(stakes.loseSips / 2)}</span>
+                  </Btn>
                 )}
 
-                {/* BOTÓN NEGOCIAR (REROLL) */}
-                <button 
-                    onClick={handleNegotiate}
-                    disabled={isNegotiated} // Desactivado si ya se negoció
-                    className={`p-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 border transition-colors h-24 ${
-                        isNegotiated 
-                        ? 'bg-neutral-900 border-neutral-800 text-neutral-600 cursor-not-allowed'
-                        : 'bg-indigo-900/40 hover:bg-indigo-900/60 border-indigo-500/30 text-indigo-200'
-                    }`}
-                >
-                    <Shuffle size={24} className={isNegotiated ? "text-neutral-600" : "text-indigo-400"} />
-                    <span className="text-sm">Negociar</span>
-                    <span className="text-[10px] opacity-60 text-center leading-tight">
-                        {isNegotiated ? "Usado" : "Más riesgo / Más puntos"}
-                    </span>
-                </button>
+                <Btn c="#8b5cf6" d="#4c1d95" onClick={handleNegotiate} disabled={isNegotiated} className="h-20 px-1">
+                  <Shuffle size={24} />
+                  <span className="text-sm">Negociar</span>
+                  <span className="text-[10px] opacity-80 leading-tight">{isNegotiated ? 'Ya usado' : '¡Más riesgo, más puntos!'}</span>
+                </Btn>
+              </div>
+            </div>
+          </div>
+        )}
 
-                {/* BOTÓN HECHO */}
-                <button 
-                    onClick={() => handleResult(true)}
-                    className="bg-white text-black hover:bg-gray-100 p-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 shadow-[0_0_15px_rgba(255,255,255,0.2)] transition-transform active:scale-95 h-24"
-                >
-                    <Check className="text-green-600" strokeWidth={3} size={24} />
-                    <span className="text-sm">{drinkType ? 'Bebí / No aplica' : '¡Hecho!'}</span>
-                    <span className="text-[10px] opacity-60 text-center leading-tight">
-                        Ganar {stakes.win} pts
-                    </span>
-                </button>
+        {/* GANADOR */}
+        {gameState === 'winner' && sorted.length > 0 && (
+          <div className="flex-1 flex flex-col items-center text-center gap-5 py-2">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full blur-3xl bg-yellow-300/50 pulse-big" />
+              <Trophy size={110} className="relative text-yellow-300 bounce-y drop-shadow-[0_0_20px_rgba(253,224,71,.9)]" />
             </div>
 
-            {/* Mini Leaderboard */}
-            <div className="bg-black/40 rounded-xl p-4 border border-neutral-800/50">
-              <p className="text-xs text-neutral-500 uppercase font-bold mb-2">Ranking Actual</p>
-              <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-                {[...players].sort((a, b) => b.score - a.score).map((p, i) => (
-                  <div key={i} className="flex-shrink-0 flex flex-col items-center min-w-[60px]">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-1 ${i===0 ? 'bg-yellow-500 text-black' : 'bg-neutral-700'}`}>
-                      {i === 0 ? <Crown size={14} /> : i+1}
-                    </div>
-                    <span className="text-xs truncate w-full text-center">{p.name}</span>
-                    <span className="text-xs text-red-400 font-bold">{p.score}</span>
+            <h2 className="font-display text-4xl rainbow-text slam">¡TENEMOS GANADOR!</h2>
+
+            <div
+              className="pop-in font-display text-4xl px-8 py-3 rounded-full text-black shadow-2xl rotate-2 flex items-center gap-3"
+              style={{ background: `linear-gradient(135deg, #fde047, ${sorted[0].color})` }}
+            >
+              <span className="text-5xl wobble">{sorted[0].emoji}</span> {sorted[0].name}
+            </div>
+
+            <div className="w-full bg-black/40 backdrop-blur-md rounded-3xl p-4 border-2 border-white/15">
+              <h3 className="font-display text-xl mb-3 text-pink-300">🥇 Podio y tragos 🥃</h3>
+              <div className="space-y-2">
+                {sorted.map((p, i) => (
+                  <div
+                    key={p.name}
+                    className="pop-in flex items-center justify-between rounded-2xl px-3 py-2 font-bold"
+                    style={{ background: `${p.color}33`, border: `2px solid ${p.color}`, animationDelay: `${i * 0.1}s` }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-7 text-xl">{['🥇', '🥈', '🥉'][i] || `${i + 1}º`}</span>
+                      <span className="text-xl">{p.emoji}</span> {p.name}
+                    </span>
+                    <span className="text-right text-sm leading-tight">
+                      <span className="block text-lime-300">⭐ {p.score}</span>
+                      <span className="block text-pink-300">🥃 {p.sips}</span>
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
+
+            <Btn c="#00d4ff" d="#007a99" t="#00212b" onClick={restartGame} className="pulse-big w-full py-4 text-xl">
+              <span className="flex items-center gap-2"><RotateCcw size={22} /> Jugar de nuevo</span>
+            </Btn>
           </div>
         )}
-
-        {/* PANTALLA DE GANADOR */}
-        {gameState === 'winner' && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700">
-            <div className="mb-6 relative">
-              <div className="absolute inset-0 bg-yellow-500 blur-[60px] opacity-20 animate-pulse"></div>
-              <Trophy size={100} className="text-yellow-400 drop-shadow-2xl relative z-10" />
-            </div>
-            
-            <h2 className="text-4xl font-black text-white mb-2">¡TENEMOS GANADOR!</h2>
-            <p className="text-xl text-neutral-400 mb-8">El rey/reina de la fiesta es:</p>
-            
-            <div className="bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-10 py-4 rounded-full font-black text-3xl shadow-xl transform scale-110 rotate-2 mb-12">
-              {[...players].sort((a, b) => b.score - a.score)[0].name}
-            </div>
-
-            <div className="w-full bg-neutral-900/80 rounded-2xl p-6 mb-8 border border-neutral-800">
-              <h3 className="text-lg font-bold mb-4 text-left flex items-center gap-2">
-                <Wine size={18} /> Contador de Tragos (Castigos)
-              </h3>
-              {players.map((p, i) => (
-                <div key={i} className="flex justify-between py-2 border-b border-neutral-800 last:border-0">
-                  <span>{p.name}</span>
-                  <span className="text-red-400 font-bold">{p.sips} tragos</span>
-                </div>
-              ))}
-            </div>
-
-            <button 
-              onClick={restartGame}
-              className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors flex items-center gap-2"
-            >
-              <RotateCcw size={20} /> Jugar de Nuevo
-            </button>
-          </div>
-        )}
-
       </div>
-      
-      {/* Estilos extra para scrollbar oculta pero funcional */}
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          height: 4px;
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.05);
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 10px;
-        }
-      `}</style>
     </div>
   );
 };
