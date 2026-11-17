@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Wine, UserPlus, Play, RotateCcw, Trophy, X, Check, Shuffle, AlertTriangle, ShieldX, Volume2, VolumeX, Timer } from 'lucide-react';
-import Confetti from './Confetti.jsx';
-import * as sfx from './sound.js';
+import { Flame, Wine, UserPlus, Play, RotateCcw, Trophy, X, Check, Crown, Shuffle, AlertTriangle, ShieldX } from 'lucide-react';
+import { motion, AnimatePresence, MotionConfig, animate, useMotionValue, useTransform } from 'framer-motion';
 
 const WIN_SCORE = 400;
 const REPEAT_DECAY = 1 / 4; // cada vez que sale un reto, su probabilidad se multiplica por 1/4
@@ -232,26 +231,94 @@ const pickPartnerIndex = (playerCount, excludeIdx) => {
   return idx;
 };
 
-const AVATARS = ['🦊', '🐙', '🦄', '🐸', '🐼', '🦁', '🐲', '🦖', '🐵', '🦩', '🐝', '👾'];
-const COLORS = ['#ff3d81', '#00d4ff', '#ffd60a', '#7cff4d', '#b44dff', '#ff7a00', '#00ffb3', '#ff5252'];
-const FLOATIES = ['🔥', '💋', '🍹', '✨', '😈', '🎉', '🥂', '💃', '🌶️', '💥', '🎲', '🍑'];
-const TIMER_SECONDS = 15;
+// ---------- Identidad visual ----------
+const PLAYER_COLORS = ['#ff2e93', '#22e6ff', '#ffb020', '#9dff3a', '#a855ff', '#ff5a36', '#2effc0', '#ff6bd6'];
 
-const INTENSITY = {
-  soft: { label: 'Para calentar', emoji: '😉', grad: 'from-sky-500 via-blue-600 to-indigo-700', glow: '#38bdf8' },
-  medium: { label: 'Nivel medio', emoji: '😈', grad: 'from-orange-500 via-pink-600 to-purple-700', glow: '#fb7185' },
-  hard: { label: 'Prueba extrema', emoji: '🔥', grad: 'from-rose-600 via-red-600 to-fuchsia-800', glow: '#ff3d3d' },
+const LEVELS = {
+  soft: { label: 'Para calentar', color: '#ff5ea8', flames: 1 },
+  medium: { label: 'Nivel medio', color: '#b45cff', flames: 2 },
+  hard: { label: 'Prueba extrema', color: '#ff2d3d', flames: 3 },
+};
+const NEGOTIATED_COLOR = '#ffc61a';
+
+const spring = { type: 'spring', stiffness: 380, damping: 26 };
+
+const AnimatedNumber = ({ value }) => {
+  const mv = useMotionValue(value);
+  const rounded = useTransform(mv, (v) => Math.round(v));
+  useEffect(() => {
+    const controls = animate(mv, value, { duration: 0.8, ease: 'easeOut' });
+    return () => controls.stop();
+  }, [value]);
+  return <motion.span>{rounded}</motion.span>;
 };
 
-const Btn = ({ c, d, t, className = '', children, ...rest }) => (
-  <button
+const Background = () => (
+  <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+    <div className="orb w-96 h-96 -top-24 -left-24" style={{ background: 'rgba(255,45,90,.35)' }} />
+    <div className="orb w-[26rem] h-[26rem] top-1/3 -right-40" style={{ background: 'rgba(130,60,255,.32)', animationDelay: '-5s' }} />
+    <div className="grid-floor" />
+    {Array.from({ length: 22 }).map((_, i) => (
+      <span
+        key={i}
+        className="spark"
+        style={{
+          left: `${(i * 37) % 100}%`,
+          animationDuration: `${9 + (i % 6) * 3}s`,
+          animationDelay: `${-i * 1.7}s`,
+          background: i % 3 === 0 ? '#ff2e93' : i % 3 === 1 ? '#a855ff' : '#22e6ff',
+          boxShadow: '0 0 8px currentColor',
+        }}
+      />
+    ))}
+  </div>
+);
+
+// Logo estilo letrero de neón
+const Logo = ({ big = false }) => (
+  <motion.h1
+    initial={{ y: -40, opacity: 0 }}
+    animate={{ y: 0, opacity: 1 }}
+    transition={spring}
+    className={`font-neon select-none flex items-center justify-center gap-2 ${big ? 'text-6xl' : 'text-4xl'}`}
+    aria-label="Chuto 15"
+  >
+    <span className="neon-text" style={{ '--glow': '#ff2d5a' }}>
+      CHU<span className="flicker-fast inline-block">T</span>O
+    </span>
+    <motion.span
+      animate={{ rotate: [-4, 4, -4] }}
+      transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+      className="neon-box neon-text rounded-xl px-2 leading-tight flicker"
+      style={{ '--glow': '#a855ff' }}
+    >
+      15
+    </motion.span>
+  </motion.h1>
+);
+
+const NeonBtn = ({ color, fill = false, sweep = false, className = '', children, ...rest }) => (
+  <motion.button
+    whileHover={rest.disabled ? undefined : { scale: 1.03 }}
+    whileTap={rest.disabled ? undefined : { scale: 0.94 }}
+    transition={spring}
+    style={{ '--c': color }}
+    className={`btn-n ${fill ? 'btn-fill' : ''} ${sweep ? 'btn-sweep' : ''} rounded-2xl flex flex-col items-center justify-center text-center ${className}`}
     {...rest}
-    style={{ '--c': c, '--d': d, '--t': t }}
-    className={`btn3d rounded-2xl flex flex-col items-center justify-center text-center ${className}`}
   >
     {children}
-  </button>
+  </motion.button>
 );
+
+const screenVariants = {
+  initial: { opacity: 0, y: 30, scale: 0.96 },
+  animate: { opacity: 1, y: 0, scale: 1, transition: { ...spring, staggerChildren: 0.08 } },
+  exit: { opacity: 0, y: -30, scale: 0.96, transition: { duration: 0.2 } },
+};
+const itemVariants = {
+  initial: { opacity: 0, y: 26 },
+  animate: { opacity: 1, y: 0, transition: spring },
+};
 
 const App = () => {
   const [gameState, setGameState] = useState('consent');
@@ -266,57 +333,29 @@ const App = () => {
   const [partnerPlayerIndex, setPartnerPlayerIndex] = useState(null);
   const [nameError, setNameError] = useState('');
 
-  // ESTADOS VISUALES / SONIDO
-  const [muted, setMuted] = useState(false);
+  // ESTADOS VISUALES
   const [cardKey, setCardKey] = useState(0);
   const [pops, setPops] = useState([]);
-  const [shaking, setShaking] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
-  const [timerRunning, setTimerRunning] = useState(false);
+  const [turnBanner, setTurnBanner] = useState(null);
 
   // Multiplicador de probabilidad por reto (baja a 1/4 cada vez que sale)
   const repeatMultipliers = useRef(BASE_CHALLENGES.map(() => 1));
-  const avatarSeed = useRef(0);
+  const colorSeed = useRef(0);
   const popId = useRef(0);
-  const confettiRef = useRef(null);
 
   // --- EFECTOS VISUALES ---
   const addPop = (text, color, delay = 0) => {
     const id = popId.current++;
     setTimeout(() => {
       setPops((p) => [...p, { id, text, color }]);
-      setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1500);
+      setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 1600);
     }, delay);
   };
-  const vibrate = (pattern) => { if (!muted && navigator.vibrate) navigator.vibrate(pattern); };
-  const shake = () => { setShaking(true); setTimeout(() => setShaking(false), 500); };
-  const burstAt = (e, n = 80) => {
-    const x = e && e.clientX ? e.clientX : window.innerWidth / 2;
-    const y = e && e.clientY ? e.clientY : window.innerHeight / 2;
-    confettiRef.current && confettiRef.current.burst(x, y, n);
+  const showTurn = (player) => {
+    const id = popId.current++;
+    setTurnBanner({ id, name: player.name, color: player.color });
+    setTimeout(() => setTurnBanner((b) => (b && b.id === id ? null : b)), 1200);
   };
-  const toggleMute = () => { sfx.setMuted(!muted); setMuted(!muted); if (muted) sfx.tap(); };
-
-  // Temporizador de reto
-  useEffect(() => { setTimerRunning(false); setTimeLeft(TIMER_SECONDS); }, [cardKey]);
-  useEffect(() => {
-    if (!timerRunning) return;
-    const id = setInterval(() => setTimeLeft((t) => t - 1), 1000);
-    return () => clearInterval(id);
-  }, [timerRunning]);
-  useEffect(() => {
-    if (!timerRunning) return;
-    if (timeLeft <= 0) { setTimerRunning(false); sfx.buzzer(); vibrate([200, 80, 200]); shake(); }
-    else if (timeLeft <= 5) sfx.tick();
-  }, [timeLeft, timerRunning]);
-
-  // Celebración al ganar
-  useEffect(() => {
-    if (gameState === 'winner') {
-      sfx.win();
-      confettiRef.current && confettiRef.current.rain(7000);
-    }
-  }, [gameState]);
 
   // --- LOGICA DE CONFIGURACIÓN ---
   const addPlayer = () => {
@@ -324,24 +363,15 @@ const App = () => {
     if (name === '') return;
     if (players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
       setNameError('Ya hay un jugador con ese nombre.');
-      sfx.refuse();
       return;
     }
     setNameError('');
-    const seed = avatarSeed.current++;
-    setPlayers([...players, {
-      name, score: 0, sips: 0,
-      emoji: AVATARS[seed % AVATARS.length],
-      color: COLORS[seed % COLORS.length],
-    }]);
+    const color = PLAYER_COLORS[colorSeed.current++ % PLAYER_COLORS.length];
+    setPlayers([...players, { name, score: 0, sips: 0, color }]);
     setNewPlayerName('');
-    sfx.join();
   };
 
-  const removePlayer = (index) => {
-    setPlayers(players.filter((_, i) => i !== index));
-    sfx.tap();
-  };
+  const removePlayer = (index) => setPlayers(players.filter((_, i) => i !== index));
 
   const startGame = () => {
     if (players.length < 2) return;
@@ -357,7 +387,7 @@ const App = () => {
     setNegotiatedStakes(null);
     setPartnerPlayerIndex(null);
     setCardKey((k) => k + 1);
-    sfx.flip();
+    showTurn(currentPlayers[playerIdx]);
 
     // Los ya salidos pesan 1/4 cada vez que aparecen
     const idx = weightedPick(repeatMultipliers.current);
@@ -397,10 +427,7 @@ const App = () => {
     } else if (!newChallenge.text.includes('{partner}')) {
       setPartnerPlayerIndex(null);
     }
-
-    sfx.negotiate();
-    vibrate([60, 40, 60, 40, 120]);
-    addPop('🎲 ¡DOBLE RIESGO!', '#ffd60a');
+    addPop('DOBLE RIESGO', NEGOTIATED_COLOR);
   };
 
   // Stakes actuales (negociados o normales)
@@ -433,15 +460,13 @@ const App = () => {
       if (i === partnerPlayerIndex) return { ...p, sips: p.sips + theirs };
       return p;
     });
-    sfx.refuse();
-    vibrate([40, 30, 40]);
-    addPop('🛡️ ¡SE OPONE!', '#ff9f1c');
-    addPop(`${me.emoji} +${mine} ⭐`, '#7cff4d', 250);
-    addPop(`${partner.emoji} bebe ${theirs} 🥃`, '#ff5c8a', 500);
+    addPop('SE OPONE', '#ff9f1c');
+    addPop(`${me.name} +${mine}`, '#9dff3a', 250);
+    addPop(`${partner.name} bebe ${theirs}`, '#ff2e93', 500);
     finishTurn(newPlayers);
   };
 
-  const handleResult = (success, e) => {
+  const handleResult = (success) => {
     const { points, sips } = getCurrentStakes();
     const me = players[currentPlayerIndex];
     const newPlayers = players.map((p, i) => {
@@ -454,18 +479,12 @@ const App = () => {
       return p;
     });
     if (success) {
-      sfx.success();
-      vibrate([30, 30, 80]);
-      burstAt(e, 90);
-      addPop(`${me.emoji} +${points} ⭐`, '#7cff4d');
+      addPop(`+${points}`, '#9dff3a');
       if (partnerPlayerIndex !== null) {
-        addPop(`${players[partnerPlayerIndex].emoji} +${Math.floor(points / 2)} ⭐`, '#00d4ff', 300);
+        addPop(`${players[partnerPlayerIndex].name} +${Math.floor(points / 2)}`, '#22e6ff', 250);
       }
     } else {
-      sfx.fail();
-      vibrate([200, 60, 200]);
-      shake();
-      addPop(`${me.emoji} bebe ${sips} 🥃`, '#ff5c8a');
+      addPop(`${me.name} bebe ${sips}`, '#ff2e93');
     }
     finishTurn(newPlayers);
   };
@@ -477,7 +496,6 @@ const App = () => {
   };
 
   const restartGame = () => {
-    sfx.tap();
     setPlayers(players.map((p) => ({ ...p, score: 0, sips: 0 })));
     setGameState('setup');
     setCurrentPlayerIndex(0);
@@ -488,354 +506,427 @@ const App = () => {
     setPartnerPlayerIndex(null);
   };
 
-  const getDisplayStakes = () => {
-    if (isNegotiated && negotiatedStakes) {
-      return { win: negotiatedStakes.points, loseSips: negotiatedStakes.sips };
-    }
-    return {
-      win: currentChallenge ? currentChallenge.points : 0,
-      loseSips: calculateSips(currentChallenge),
-    };
-  };
-
-  const stakes = getDisplayStakes();
+  const stakes = currentChallenge
+    ? (isNegotiated && negotiatedStakes
+        ? { win: negotiatedStakes.points, loseSips: negotiatedStakes.sips }
+        : { win: currentChallenge.points, loseSips: calculateSips(currentChallenge) })
+    : { win: 0, loseSips: 0 };
   const drinkType = isDrinkChallenge(currentChallenge);
-  const level = currentChallenge ? INTENSITY[currentChallenge.intensity] : INTENSITY.soft;
+  const level = currentChallenge ? LEVELS[currentChallenge.intensity] : LEVELS.soft;
+  const glow = isNegotiated ? NEGOTIATED_COLOR : level.color;
   const me = players[currentPlayerIndex];
   const partner = partnerPlayerIndex !== null ? players[partnerPlayerIndex] : null;
-
-  // Texto del reto con el nombre del partner resaltado
-  const renderChallengeText = () => {
-    if (!currentChallenge) return null;
-    const parts = currentChallenge.text.split('{partner}');
-    if (!partner) return parts.join('');
-    return parts.map((part, i) => (
-      <React.Fragment key={i}>
-        {part}
-        {i < parts.length - 1 && (
-          <span
-            className="inline-block px-2 mx-0.5 rounded-lg text-black wobble"
-            style={{ background: partner.color }}
-          >
-            {partner.emoji} {partner.name}
-          </span>
-        )}
-      </React.Fragment>
-    ));
-  };
-
   const sorted = [...players].sort((a, b) => b.score - a.score);
+
+  // Texto del reto, palabra por palabra (con el partner resaltado)
+  const challengeTokens = () => {
+    if (!currentChallenge) return [];
+    const tokens = [];
+    const parts = currentChallenge.text.split('{partner}');
+    parts.forEach((part, i) => {
+      part.split(' ').filter(Boolean).forEach((w) => tokens.push({ t: w }));
+      if (i < parts.length - 1) tokens.push({ partner: true });
+    });
+    return tokens;
+  };
 
   // --- RENDERIZADO ---
   return (
-    <div className={`min-h-screen bg-live text-white overflow-x-hidden relative ${shaking ? 'shake' : ''}`}>
-      <Confetti ref={confettiRef} />
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen text-white overflow-x-hidden relative scanlines" style={{ background: 'var(--bg)' }}>
+        <Background />
+        <div className="vignette" />
 
-      {/* Fondo vivo */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="blob w-80 h-80 bg-pink-500 -top-20 -left-20" />
-        <div className="blob w-96 h-96 bg-cyan-400 top-1/3 -right-32" style={{ animationDelay: '-4s' }} />
-        <div className="blob w-72 h-72 bg-yellow-400 bottom-0 left-1/4" style={{ animationDelay: '-8s' }} />
-        {FLOATIES.map((f, i) => (
-          <span
-            key={i}
-            className="floaty"
-            style={{ left: `${(i * 8.7) % 96}%`, animationDuration: `${14 + (i % 5) * 4}s`, animationDelay: `${-i * 2.3}s` }}
-          >{f}</span>
-        ))}
-      </div>
-
-      {/* Popups flotantes */}
-      <div className="fixed inset-x-0 top-[28%] z-40 flex flex-col items-center gap-2 pointer-events-none">
-        {pops.map((p) => (
-          <div
-            key={p.id}
-            className="pop-up font-display text-2xl sm:text-3xl px-4 py-1 rounded-full bg-black/70 border-2"
-            style={{ color: p.color, borderColor: p.color, textShadow: `0 0 14px ${p.color}` }}
-          >{p.text}</div>
-        ))}
-      </div>
-
-      <div className="relative z-10 max-w-md mx-auto min-h-screen flex flex-col p-4">
-
-        {/* HEADER */}
-        <header className="flex justify-between items-center py-3 mb-2">
-          <div className="w-10" />
-          <h1 className="font-display text-4xl tracking-wide select-none" aria-label="Chuto 15">
-            {'CHUTO'.split('').map((l, i) => (
-              <span key={i} className="letter rainbow-text" style={{ animationDelay: `${i * 0.12}s` }}>{l}</span>
-            ))}
-            <span className="letter text-white text-outline wobble" style={{ animationDelay: '.7s' }}>15</span>
-          </h1>
-          <button
-            onClick={toggleMute}
-            aria-label={muted ? 'Activar sonido' : 'Silenciar'}
-            className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors"
-          >
-            {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          </button>
-        </header>
-
-        {/* AVISO +18 */}
-        {gameState === 'consent' && (
-          <div className="flex-1 flex flex-col justify-center gap-6">
-            <div className="pop-in bg-black/40 backdrop-blur-md border-2 border-pink-400/60 rounded-3xl p-6 text-center shadow-[0_0_40px_rgba(255,61,129,.35)]">
-              <div className="text-7xl wobble inline-block mb-2">🔞</div>
-              <h2 className="font-display text-3xl text-pink-300 mb-4">Solo adultos</h2>
-              <ul className="text-white/90 text-base space-y-2 text-left">
-                <li>🍻 Retos sexuales y de beber alcohol.</li>
-                <li>🪪 Solo para mayores de 18 años.</li>
-                <li>🤝 Todos tienen que estar de acuerdo en jugar.</li>
-                <li>🙅 Cualquiera puede negarse a un reto, sin presión.</li>
-                <li>🚕 Toma con moderación y no conduzcas.</li>
-              </ul>
-            </div>
-            <Btn
-              c="#ff3d81" d="#a3004a"
-              onClick={() => { sfx.unlock(); sfx.success(); setGameState('setup'); }}
-              className="pulse-big w-full py-5 text-xl"
+        {/* Banner de turno: barrido a pantalla completa */}
+        <AnimatePresence>
+          {turnBanner && (
+            <motion.div
+              key={turnBanner.id}
+              className="fixed inset-0 z-40 pointer-events-none flex items-center justify-center overflow-hidden"
+              initial="in" animate="in" exit="out"
             >
-              Soy mayor de 18 y todos aceptamos jugar
-            </Btn>
-          </div>
-        )}
-
-        {/* SETUP */}
-        {gameState === 'setup' && (
-          <div className="flex-1 flex flex-col gap-5">
-            <div className="pop-in bg-black/35 backdrop-blur-md border-2 border-cyan-300/50 rounded-3xl p-5 shadow-[0_0_35px_rgba(0,212,255,.25)]">
-              <h2 className="font-display text-2xl text-cyan-300 mb-4 text-center flex items-center justify-center gap-2">
-                <span className="bounce-y inline-block">🎤</span> ¿Quiénes juegan?
-              </h2>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={newPlayerName}
-                  onChange={(e) => { setNewPlayerName(e.target.value); setNameError(''); }}
-                  onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-                  placeholder="Escribe un nombre…"
-                  maxLength={16}
-                  className="flex-1 min-w-0 bg-white/10 border-2 border-white/20 rounded-2xl px-4 py-3 text-lg placeholder:text-white/40 focus:outline-none focus:border-cyan-300 transition-colors"
-                />
-                <Btn c="#00d4ff" d="#007a99" t="#00212b" onClick={addPlayer} aria-label="Añadir jugador" className="w-14">
-                  <UserPlus size={26} />
-                </Btn>
-              </div>
-              {nameError && <p className="text-pink-300 text-sm mb-2">{nameError}</p>}
-
-              <div className="flex flex-wrap gap-2 mt-4 min-h-[56px]">
-                {players.map((p, i) => (
-                  <div
-                    key={p.name}
-                    className="pop-in flex items-center gap-2 pl-2 pr-1 py-1 rounded-full text-black font-bold"
-                    style={{ background: p.color, animationDelay: `${i * 0.03}s` }}
-                  >
-                    <span className="text-2xl">{p.emoji}</span>
-                    <span className="text-lg">{p.name}</span>
-                    <button onClick={() => removePlayer(i)} aria-label={`Quitar a ${p.name}`} className="w-7 h-7 rounded-full bg-black/25 hover:bg-black/45 text-white flex items-center justify-center">
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-                {players.length === 0 && <p className="text-white/50 italic m-auto">Añade jugadores para empezar…</p>}
-              </div>
-            </div>
-
-            {players.length >= 2 ? (
-              <Btn c="#7cff4d" d="#2f9a00" t="#10300a" onClick={() => { sfx.unlock(); startGame(); }} className="pulse-big w-full py-5 text-2xl font-display">
-                <span className="flex items-center gap-3"><Play fill="currentColor" /> ¡A JUGAR!</span>
-              </Btn>
-            ) : (
-              <div className="text-center text-white/60 text-sm p-2">Necesitas al menos 2 jugadores para la tensión 😏</div>
-            )}
-          </div>
-        )}
-
-        {/* JUEGO */}
-        {gameState === 'playing' && currentChallenge && me && (
-          <div className="flex-1 flex flex-col gap-2.5">
-
-            {/* Carrera hacia 400 */}
-            <div className="bg-black/35 backdrop-blur-sm rounded-2xl p-2 border border-white/15">
-              <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-white/60 px-1 mb-1">
-                <span>🏁 Carrera a {WIN_SCORE}</span>
-                <span>🥃 sorbos</span>
-              </div>
-              <div className="space-y-1 max-h-28 overflow-y-auto">
-                {players.map((p, i) => {
-                  const pct = Math.min(100, (p.score / WIN_SCORE) * 100);
-                  const active = i === currentPlayerIndex;
-                  return (
-                    <div key={p.name} className="flex items-center gap-2">
-                      <div className={`relative flex-1 h-7 rounded-full bg-white/10 overflow-hidden ${active ? 'ring-2 ring-white lane-active' : ''}`}>
-                        <div
-                          className="lane-fill absolute inset-y-0 left-0 rounded-full flex items-center justify-end pr-1"
-                          style={{ width: `max(${pct}%, 2rem)`, background: `linear-gradient(90deg, ${p.color}55, ${p.color})` }}
-                        >
-                          <span className="text-lg leading-none">{p.emoji}</span>
-                        </div>
-                        <div className="absolute inset-0 flex items-center justify-between px-3 text-sm font-bold text-outline pointer-events-none">
-                          <span className="truncate">{p.name}</span>
-                          <span>{p.score}</span>
-                        </div>
-                      </div>
-                      <span className="w-9 text-right text-sm font-bold text-pink-300">{p.sips}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Turno */}
-            <div key={`turn-${currentPlayerIndex}-${cardKey}`} className="slam flex items-center justify-center gap-3">
-              <span className="text-4xl bounce-y">{me.emoji}</span>
-              <div className="leading-none">
-                <div className="text-xs uppercase tracking-[0.25em] text-white/70 font-bold">Turno de</div>
-                <div className="font-display text-2xl text-outline" style={{ color: me.color }}>{me.name}</div>
-              </div>
-            </div>
-
-            {/* Tarjeta del reto */}
-            <div key={cardKey} className="card-flip">
-              <div
-                className="rounded-[2rem] p-[3px]"
-                style={{
-                  background: isNegotiated
-                    ? 'linear-gradient(135deg,#fde047,#fb923c,#ef4444)'
-                    : 'linear-gradient(135deg,rgba(255,255,255,.7),rgba(255,255,255,.1))',
-                  boxShadow: `0 0 45px ${isNegotiated ? '#fbbf24' : level.glow}99`,
-                }}
-              >
-                <div className={`relative overflow-hidden shine rounded-[1.9rem] bg-gradient-to-br ${level.grad} ${isNegotiated ? 'hazard' : ''} px-5 py-5 min-h-[190px] flex flex-col items-center justify-center text-center gap-2`}>
-                  <div className="flex items-center justify-between w-full">
-                    <span className="inline-flex items-center gap-1 bg-black/35 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest">
-                      {drinkType ? '🍻 Bebe o no' : `${level.emoji} ${level.label}`}
-                    </span>
-                    {isNegotiated && (
-                      <span className="inline-flex items-center gap-1 bg-yellow-300 text-black rounded-full px-3 py-1 text-xs font-extrabold pulse-big">
-                        <AlertTriangle size={13} /> RIESGO x2
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-5xl wobble drop-shadow-lg leading-none">{drinkType ? '🍻' : level.emoji}</div>
-
-                  <h3 className="text-xl sm:text-2xl font-bold leading-snug text-outline break-words">
-                    {renderChallengeText()}
-                  </h3>
-
-                  <div className="flex gap-3 w-full justify-center mt-1">
-                    <div className="flex-1 bg-black/40 rounded-2xl py-2 border border-lime-300/50">
-                      <div className="text-[10px] uppercase font-bold text-lime-200/80">Premio</div>
-                      <div className="font-display text-xl text-lime-300">⭐ +{stakes.win}</div>
-                      {partner && <div className="text-[10px] text-lime-100/80">{partner.emoji} +{Math.floor(stakes.win / 2)}</div>}
-                    </div>
-                    <div className="flex-1 bg-black/40 rounded-2xl py-2 border border-pink-300/50">
-                      <div className="text-[10px] uppercase font-bold text-pink-200/80">Castigo</div>
-                      <div className="font-display text-xl text-pink-300">🥃 {stakes.loseSips}</div>
-                      {partner && <div className="text-[10px] text-pink-100/80">si se opone: {Math.ceil(stakes.loseSips / 2)}</div>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Temporizador */}
-            <button
-              onClick={() => { sfx.tap(); if (timerRunning) { setTimerRunning(false); setTimeLeft(TIMER_SECONDS); } else { setTimeLeft(TIMER_SECONDS); setTimerRunning(true); } }}
-              className="relative h-9 rounded-full bg-white/10 border border-white/20 overflow-hidden font-bold text-sm"
-            >
-              <div
-                className="absolute inset-y-0 left-0 transition-all duration-1000 ease-linear"
-                style={{
-                  width: timerRunning ? `${(Math.max(timeLeft, 0) / TIMER_SECONDS) * 100}%` : '0%',
-                  background: timeLeft <= 5 ? '#ff3d3d' : 'linear-gradient(90deg,#00d4ff,#7cff4d)',
-                }}
+              <motion.div
+                className="absolute inset-x-0 h-28"
+                style={{ background: `linear-gradient(90deg, transparent, ${turnBanner.color}55, transparent)`, backdropFilter: 'blur(3px)' }}
+                variants={{ in: { scaleY: 1, opacity: 1 }, out: { scaleY: 0, opacity: 0 } }}
+                initial={{ scaleY: 0, opacity: 0 }}
+                transition={{ duration: 0.25 }}
               />
-              <span className="relative flex items-center justify-center gap-2 text-outline">
-                <Timer size={16} />
-                {timerRunning ? `${Math.max(timeLeft, 0)} s (toca para parar)` : `¡Cuenta atrás de ${TIMER_SECONDS} s!`}
-              </span>
-            </button>
+              <motion.div
+                className="relative text-center"
+                initial={{ x: '-110vw', skewX: -18 }}
+                animate={{ x: 0, skewX: -8, transition: { type: 'spring', stiffness: 220, damping: 20 } }}
+                exit={{ x: '110vw', skewX: -18, transition: { duration: 0.28, ease: 'easeIn' } }}
+              >
+                <div className="text-xs tracking-[0.5em] text-white/70 font-bold">TURNO DE</div>
+                <div className="font-neon text-6xl neon-text break-all" style={{ '--glow': turnBanner.color }}>
+                  {turnBanner.name}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            {/* Acciones */}
-            <div className="flex flex-col gap-3 mt-1 pb-2">
-              <Btn c="#7cff4d" d="#2f9a00" t="#0d2b06" onClick={(e) => handleResult(true, e)} className="w-full py-3">
-                <span className="flex items-center gap-2 font-display text-2xl"><Check strokeWidth={4} /> {drinkType ? 'BEBÍ / NO APLICA' : '¡HECHO!'}</span>
-                <span className="text-xs opacity-80">Ganas {stakes.win} ⭐</span>
-              </Btn>
+        {/* Textos flotantes de resultado */}
+        <div className="fixed inset-x-0 top-[26%] z-30 flex flex-col items-center gap-2 pointer-events-none">
+          <AnimatePresence>
+            {pops.map((p) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 40, scale: 0.5 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -60, scale: 1.1 }}
+                transition={spring}
+                className="font-neon text-3xl px-5 py-1 rounded-full bg-black/70 neon-box neon-soft"
+                style={{ '--glow': p.color, color: p.color }}
+              >
+                {p.text}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
 
-              <div className={`grid gap-3 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                <Btn c="#ff3d81" d="#a3004a" onClick={(e) => handleResult(false, e)} className="h-20 px-1">
-                  <Wine size={24} />
-                  <span className="text-sm">{drinkType ? 'Me niego' : 'Castigo'}</span>
-                  <span className="text-[10px] opacity-80 leading-tight">Bebes {stakes.loseSips} 🥃</span>
-                </Btn>
+        <div className="relative z-10 max-w-md mx-auto min-h-screen flex flex-col p-4">
+          <header className="py-3 mb-1">
+            <Logo big={gameState === 'consent' || gameState === 'setup'} />
+          </header>
 
-                {partner && (
-                  <Btn c="#ff9f1c" d="#a35a00" t="#2b1600" onClick={handlePartnerRefusal} className="h-20 px-1">
-                    <ShieldX size={24} />
-                    <span className="text-sm">Se opone</span>
-                    <span className="text-[10px] opacity-80 leading-tight">{partner.name} bebe {Math.ceil(stakes.loseSips / 2)}</span>
-                  </Btn>
-                )}
+          <AnimatePresence mode="wait">
 
-                <Btn c="#8b5cf6" d="#4c1d95" onClick={handleNegotiate} disabled={isNegotiated} className="h-20 px-1">
-                  <Shuffle size={24} />
-                  <span className="text-sm">Negociar</span>
-                  <span className="text-[10px] opacity-80 leading-tight">{isNegotiated ? 'Ya usado' : '¡Más riesgo, más puntos!'}</span>
-                </Btn>
-              </div>
-            </div>
-          </div>
-        )}
+            {/* AVISO +18 */}
+            {gameState === 'consent' && (
+              <motion.div key="consent" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col justify-center gap-6">
+                <motion.div variants={itemVariants} className="neon-box rounded-3xl p-6 bg-black/50 backdrop-blur-md text-center" style={{ '--glow': '#ff2d5a' }}>
+                  <div className="font-neon text-6xl neon-text flicker" style={{ '--glow': '#ff2d5a' }}>+18</div>
+                  <h2 className="font-neon text-2xl text-pink-300 mt-1 mb-4">Solo adultos</h2>
+                  <ul className="text-white/85 text-left space-y-2">
+                    {[
+                      'Retos sexuales y de beber alcohol.',
+                      'Solo para mayores de 18 años.',
+                      'Todos tienen que estar de acuerdo en jugar.',
+                      'Cualquiera puede negarse a un reto, sin presión.',
+                      'Toma con moderación y no conduzcas.',
+                    ].map((t, i) => (
+                      <motion.li key={i} initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.3 + i * 0.1 }} className="flex gap-2">
+                        <span className="text-pink-400">▸</span> {t}
+                      </motion.li>
+                    ))}
+                  </ul>
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <NeonBtn color="#ff2d5a" fill sweep onClick={() => setGameState('setup')} className="w-full py-5 text-lg">
+                    Soy mayor de 18 y todos aceptamos jugar
+                  </NeonBtn>
+                </motion.div>
+              </motion.div>
+            )}
 
-        {/* GANADOR */}
-        {gameState === 'winner' && sorted.length > 0 && (
-          <div className="flex-1 flex flex-col items-center text-center gap-5 py-2">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full blur-3xl bg-yellow-300/50 pulse-big" />
-              <Trophy size={110} className="relative text-yellow-300 bounce-y drop-shadow-[0_0_20px_rgba(253,224,71,.9)]" />
-            </div>
-
-            <h2 className="font-display text-4xl rainbow-text slam">¡TENEMOS GANADOR!</h2>
-
-            <div
-              className="pop-in font-display text-4xl px-8 py-3 rounded-full text-black shadow-2xl rotate-2 flex items-center gap-3"
-              style={{ background: `linear-gradient(135deg, #fde047, ${sorted[0].color})` }}
-            >
-              <span className="text-5xl wobble">{sorted[0].emoji}</span> {sorted[0].name}
-            </div>
-
-            <div className="w-full bg-black/40 backdrop-blur-md rounded-3xl p-4 border-2 border-white/15">
-              <h3 className="font-display text-xl mb-3 text-pink-300">🥇 Podio y tragos 🥃</h3>
-              <div className="space-y-2">
-                {sorted.map((p, i) => (
-                  <div
-                    key={p.name}
-                    className="pop-in flex items-center justify-between rounded-2xl px-3 py-2 font-bold"
-                    style={{ background: `${p.color}33`, border: `2px solid ${p.color}`, animationDelay: `${i * 0.1}s` }}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="w-7 text-xl">{['🥇', '🥈', '🥉'][i] || `${i + 1}º`}</span>
-                      <span className="text-xl">{p.emoji}</span> {p.name}
-                    </span>
-                    <span className="text-right text-sm leading-tight">
-                      <span className="block text-lime-300">⭐ {p.score}</span>
-                      <span className="block text-pink-300">🥃 {p.sips}</span>
-                    </span>
+            {/* SETUP */}
+            {gameState === 'setup' && (
+              <motion.div key="setup" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col gap-5">
+                <motion.div variants={itemVariants} className="text-center font-neon tracking-[0.35em] text-sm text-white/60">
+                  RETA · SEDUCE · BEBE
+                </motion.div>
+                <motion.div variants={itemVariants} className="neon-box rounded-3xl p-5 bg-black/50 backdrop-blur-md" style={{ '--glow': '#a855ff' }}>
+                  <h2 className="font-neon text-2xl neon-soft text-center mb-4" style={{ '--glow': '#a855ff', color: '#d9b8ff' }}>
+                    ¿Quiénes juegan?
+                  </h2>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={newPlayerName}
+                      onChange={(e) => { setNewPlayerName(e.target.value); setNameError(''); }}
+                      onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
+                      placeholder="Nombre…"
+                      maxLength={16}
+                      className="flex-1 min-w-0 bg-black/60 border-2 border-white/15 rounded-2xl px-4 py-3 text-lg placeholder:text-white/30 focus:outline-none focus:border-[#a855ff] focus:shadow-[0_0_18px_rgba(168,85,255,.6)] transition-all"
+                    />
+                    <NeonBtn color="#22e6ff" onClick={addPlayer} aria-label="Añadir jugador" className="w-14">
+                      <UserPlus size={24} />
+                    </NeonBtn>
                   </div>
-                ))}
-              </div>
-            </div>
+                  {nameError && <p className="text-pink-300 text-sm">{nameError}</p>}
 
-            <Btn c="#00d4ff" d="#007a99" t="#00212b" onClick={restartGame} className="pulse-big w-full py-4 text-xl">
-              <span className="flex items-center gap-2"><RotateCcw size={22} /> Jugar de nuevo</span>
-            </Btn>
-          </div>
-        )}
+                  <div className="flex flex-wrap gap-2 mt-4 min-h-[48px]">
+                    <AnimatePresence>
+                      {players.map((p, i) => (
+                        <motion.div
+                          key={p.name}
+                          layout
+                          initial={{ scale: 0, rotate: -15, opacity: 0 }}
+                          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={spring}
+                          className="neon-box flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-black/60"
+                          style={{ '--glow': p.color }}
+                        >
+                          <span className="font-bold neon-soft" style={{ color: p.color, '--glow': p.color }}>{p.name}</span>
+                          <button onClick={() => removePlayer(i)} aria-label={`Quitar a ${p.name}`} className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center">
+                            <X size={14} />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                    {players.length === 0 && <p className="text-white/40 italic m-auto">Añade jugadores para empezar…</p>}
+                  </div>
+                </motion.div>
+
+                <motion.div variants={itemVariants}>
+                  {players.length >= 2 ? (
+                    <NeonBtn color="#ff2d5a" fill sweep onClick={startGame} className="w-full py-5 text-2xl font-neon">
+                      <span className="flex items-center gap-3"><Play fill="currentColor" /> COMENZAR</span>
+                    </NeonBtn>
+                  ) : (
+                    <div className="text-center text-white/45 text-sm p-2">Necesitas al menos 2 jugadores para la tensión</div>
+                  )}
+                </motion.div>
+              </motion.div>
+            )}
+
+            {/* JUEGO */}
+            {gameState === 'playing' && currentChallenge && me && (
+              <motion.div key="playing" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col gap-3">
+
+                {/* Ranking en carrera hacia 400 */}
+                <motion.div variants={itemVariants} className="rounded-2xl bg-black/50 backdrop-blur-sm border border-white/10 p-2">
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-[0.2em] text-white/45 px-1 mb-1">
+                    <span>Carrera a {WIN_SCORE}</span><span>Sorbos</span>
+                  </div>
+                  <div className="space-y-1 max-h-28 overflow-y-auto">
+                    {sorted.map((p, rank) => {
+                      const active = p.name === me.name;
+                      return (
+                        <motion.div key={p.name} layout transition={spring} className="flex items-center gap-2">
+                          <div
+                            className="relative flex-1 h-7 rounded-full bg-white/[0.07] overflow-hidden"
+                            style={active ? { boxShadow: `0 0 0 2px ${p.color}, 0 0 16px ${p.color}` } : undefined}
+                          >
+                            <motion.div
+                              className="absolute inset-y-0 left-0 rounded-full"
+                              initial={false}
+                              animate={{ width: `${Math.max(3, Math.min(100, (p.score / WIN_SCORE) * 100))}%` }}
+                              transition={{ type: 'spring', stiffness: 90, damping: 16 }}
+                              style={{ background: `linear-gradient(90deg, ${p.color}22, ${p.color}cc)` }}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-between px-3 text-sm font-bold">
+                              <span className="truncate flex items-center gap-1.5">
+                                {rank === 0 && p.score > 0 && <Crown size={13} className="text-yellow-300" />}
+                                {p.name}
+                              </span>
+                              <span className="tabular-nums"><AnimatedNumber value={p.score} /></span>
+                            </div>
+                          </div>
+                          <span className="w-8 text-right text-sm font-bold text-pink-300 tabular-nums"><AnimatedNumber value={p.sips} /></span>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+
+                {/* Tarjeta del reto */}
+                <motion.div variants={itemVariants} className="relative">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={cardKey}
+                      initial={{ y: 140, rotate: -7, opacity: 0, scale: 0.85 }}
+                      animate={{ y: 0, rotate: 0, opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 260, damping: 20 } }}
+                      exit={{ x: -320, rotate: -14, opacity: 0, transition: { duration: 0.22, ease: 'easeIn' } }}
+                    >
+                      <motion.div
+                        animate={isNegotiated ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="tube rounded-[1.7rem] p-[3px]"
+                        style={{ '--glow': glow }}
+                      >
+                        <div
+                          className={`relative overflow-hidden rounded-[1.55rem] px-5 py-4 min-h-[210px] flex flex-col items-center justify-center text-center gap-3 ${isNegotiated ? 'hazard' : ''}`}
+                          style={{ background: `radial-gradient(ellipse at top, ${glow}2e, #0b0912 70%)` }}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-1" style={{ color: glow }}>
+                              {[1, 2, 3].map((n) => (
+                                <motion.span
+                                  key={n}
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ ...spring, delay: 0.35 + n * 0.08 }}
+                                  style={{ opacity: n <= level.flames ? 1 : 0.2, filter: n <= level.flames ? `drop-shadow(0 0 6px ${glow})` : 'none' }}
+                                >
+                                  <Flame size={18} fill={n <= level.flames ? 'currentColor' : 'none'} />
+                                </motion.span>
+                              ))}
+                              <span className="ml-1 text-[11px] uppercase tracking-[0.2em] font-bold">
+                                {drinkType ? 'Bebe o no' : level.label}
+                              </span>
+                            </div>
+                            {isNegotiated && (
+                              <motion.span
+                                initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={spring}
+                                className="flex items-center gap-1 bg-yellow-300 text-black rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
+                              >
+                                <AlertTriangle size={12} /> RIESGO ×2
+                              </motion.span>
+                            )}
+                          </div>
+
+                          <motion.h3
+                            initial="hidden" animate="show"
+                            variants={{ show: { transition: { staggerChildren: 0.04, delayChildren: 0.3 } } }}
+                            className="text-[1.45rem] leading-snug font-extrabold break-words"
+                          >
+                            {challengeTokens().map((tok, i) => (
+                              <motion.span
+                                key={i}
+                                variants={{ hidden: { opacity: 0, y: 14, filter: 'blur(4px)' }, show: { opacity: 1, y: 0, filter: 'blur(0px)' } }}
+                                className="inline-block mr-[0.3em]"
+                              >
+                                {tok.partner && partner ? (
+                                  <span className="px-2 rounded-lg text-black" style={{ background: partner.color, boxShadow: `0 0 16px ${partner.color}` }}>
+                                    {partner.name}
+                                  </span>
+                                ) : tok.t}
+                              </motion.span>
+                            ))}
+                          </motion.h3>
+
+                          <div className="flex gap-3 w-full">
+                            <motion.div initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.5 }} className="flex-1 rounded-xl py-1.5 bg-black/50 border border-lime-300/40">
+                              <div className="text-[9px] tracking-[0.2em] uppercase text-lime-200/70 font-bold">Premio</div>
+                              <div className="font-neon text-xl text-lime-300 neon-soft" style={{ '--glow': '#9dff3a' }}>+{stakes.win}</div>
+                              {partner && <div className="text-[10px] text-lime-100/70">{partner.name} +{Math.floor(stakes.win / 2)}</div>}
+                            </motion.div>
+                            <motion.div initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ ...spring, delay: 0.55 }} className="flex-1 rounded-xl py-1.5 bg-black/50 border border-pink-400/40">
+                              <div className="text-[9px] tracking-[0.2em] uppercase text-pink-200/70 font-bold">Castigo</div>
+                              <div className="flex justify-center items-center gap-0.5 h-7 text-pink-300">
+                                {Array.from({ length: stakes.loseSips }).map((_, i) => (
+                                  <motion.span key={i} initial={{ scale: 0, y: -10 }} animate={{ scale: 1, y: 0 }} transition={{ ...spring, delay: 0.6 + i * 0.07 }}>
+                                    <Wine size={stakes.loseSips > 6 ? 13 : 17} style={{ filter: 'drop-shadow(0 0 5px #ff2e93)' }} />
+                                  </motion.span>
+                                ))}
+                              </div>
+                              {partner && <div className="text-[10px] text-pink-100/70">si se opone: {Math.ceil(stakes.loseSips / 2)}</div>}
+                            </motion.div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.div>
+
+                {/* Acciones */}
+                <motion.div variants={itemVariants} className="flex flex-col gap-2.5">
+                  <NeonBtn color="#9dff3a" fill sweep onClick={() => handleResult(true)} className="w-full py-3">
+                    <span className="flex items-center gap-2 font-neon text-2xl">
+                      <Check strokeWidth={4} /> {drinkType ? 'BEBÍ / NO APLICA' : '¡HECHO!'}
+                    </span>
+                    <span className="text-xs opacity-75">Ganas {stakes.win} pts</span>
+                  </NeonBtn>
+
+                  <div className={`grid gap-2.5 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    <NeonBtn color="#ff2e93" onClick={() => handleResult(false)} className="h-[4.5rem] px-1">
+                      <Wine size={22} />
+                      <span className="text-sm">{drinkType ? 'Me niego' : 'Castigo'}</span>
+                      <span className="text-[10px] opacity-70 leading-tight">Bebes {stakes.loseSips}</span>
+                    </NeonBtn>
+                    {partner && (
+                      <NeonBtn color="#ff9f1c" onClick={handlePartnerRefusal} className="h-[4.5rem] px-1">
+                        <ShieldX size={22} />
+                        <span className="text-sm">Se opone</span>
+                        <span className="text-[10px] opacity-70 leading-tight">{partner.name} bebe {Math.ceil(stakes.loseSips / 2)}</span>
+                      </NeonBtn>
+                    )}
+                    <NeonBtn color="#a855ff" onClick={handleNegotiate} disabled={isNegotiated} className="h-[4.5rem] px-1">
+                      <Shuffle size={22} />
+                      <span className="text-sm">Negociar</span>
+                      <span className="text-[10px] opacity-70 leading-tight">{isNegotiated ? 'Ya usado' : 'Más riesgo, más puntos'}</span>
+                    </NeonBtn>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+
+            {/* GANADOR */}
+            {gameState === 'winner' && sorted.length > 0 && (
+              <motion.div key="winner" variants={screenVariants} initial="initial" animate="animate" exit="exit" className="flex-1 flex flex-col items-center text-center gap-4 relative">
+                {/* chispas que suben */}
+                {Array.from({ length: 26 }).map((_, i) => (
+                  <motion.span
+                    key={i}
+                    className="absolute bottom-24 w-1.5 h-1.5 rounded-full"
+                    style={{ left: `${(i * 41) % 100}%`, background: PLAYER_COLORS[i % PLAYER_COLORS.length], boxShadow: `0 0 10px ${PLAYER_COLORS[i % PLAYER_COLORS.length]}` }}
+                    animate={{ y: [0, -420 - (i % 5) * 60], opacity: [0, 1, 0] }}
+                    transition={{ duration: 2.4 + (i % 4) * 0.5, repeat: Infinity, delay: (i % 9) * 0.25, ease: 'easeOut' }}
+                  />
+                ))}
+
+                <motion.div variants={itemVariants} className="relative">
+                  <motion.div animate={{ y: [0, -10, 0], rotate: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}>
+                    <Trophy size={96} className="text-yellow-300" style={{ filter: 'drop-shadow(0 0 18px #ffc61a)' }} />
+                  </motion.div>
+                </motion.div>
+
+                <motion.h2 variants={itemVariants} className="font-neon text-4xl neon-text flicker" style={{ '--glow': '#ffc61a' }}>
+                  ¡GANADOR!
+                </motion.h2>
+
+                <motion.div
+                  variants={itemVariants}
+                  className="neon-box rounded-full px-8 py-2 font-neon text-4xl bg-black/60 -rotate-2"
+                  style={{ '--glow': sorted[0].color, color: sorted[0].color }}
+                >
+                  {sorted[0].name}
+                </motion.div>
+
+                {/* Podio */}
+                <motion.div variants={itemVariants} className="flex items-end justify-center gap-2 h-36 w-full">
+                  {[1, 0, 2].map((pos) => {
+                    const p = sorted[pos];
+                    if (!p) return null;
+                    const h = [112, 84, 62][pos];
+                    return (
+                      <div key={p.name} className="flex flex-col items-center w-24">
+                        <span className="text-xs font-bold truncate max-w-full mb-1" style={{ color: p.color }}>{p.name}</span>
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: h }}
+                          transition={{ type: 'spring', stiffness: 120, damping: 14, delay: 0.5 + pos * 0.2 }}
+                          className="w-full rounded-t-xl neon-box flex items-start justify-center pt-2 font-neon text-2xl"
+                          style={{ '--glow': p.color, background: `${p.color}22`, color: p.color }}
+                        >
+                          {pos + 1}
+                        </motion.div>
+                      </div>
+                    );
+                  })}
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="w-full rounded-2xl bg-black/50 border border-white/10 p-3">
+                  <h3 className="font-neon text-lg text-pink-300 mb-2 flex items-center justify-center gap-2"><Wine size={16} /> Contador de tragos</h3>
+                  {sorted.map((p, i) => (
+                    <motion.div
+                      key={p.name}
+                      initial={{ x: -40, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ ...spring, delay: 0.9 + i * 0.08 }}
+                      className="flex justify-between py-1.5 border-b border-white/10 last:border-0"
+                    >
+                      <span style={{ color: p.color }} className="font-bold">{p.name}</span>
+                      <span className="text-pink-300 font-bold">{p.sips} tragos · {p.score} pts</span>
+                    </motion.div>
+                  ))}
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="w-full">
+                  <NeonBtn color="#22e6ff" onClick={restartGame} className="w-full py-3.5 text-lg">
+                    <span className="flex items-center gap-2"><RotateCcw size={20} /> Jugar de nuevo</span>
+                  </NeonBtn>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-    </div>
+    </MotionConfig>
   );
 };
 
