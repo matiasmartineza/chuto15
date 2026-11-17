@@ -20,6 +20,22 @@ export const THEMES = {
     soft: '#fb7185', medium: '#f43f5e', hard: '#dc2626', negotiated: '#fbbf24',
     face: '#120709', ring: ['#e11d48', '#d4a24c'], deck: ['#e11d48', '#7f1d1d'],
   },
+  entredos: {
+    soft: '#f9a8b4', medium: '#f472b6', hard: '#e11d48', negotiated: '#fbbf24',
+    face: '#14080e', ring: ['#e8a598', '#be185d'], deck: ['#e8a598', '#831843'],
+  },
+  primeracita: {
+    soft: '#fdba74', medium: '#fb923c', hard: '#f43f5e', negotiated: '#facc15',
+    face: '#170d0b', ring: ['#fb923c', '#fda4af'], deck: ['#fb923c', '#9a3412'],
+  },
+  trivia: {
+    soft: '#5eead4', medium: '#38bdf8', hard: '#818cf8', negotiated: '#facc15',
+    face: '#0a1020', ring: ['#22d3ee', '#6366f1'], deck: ['#22d3ee', '#3730a3'],
+  },
+  carreteonline: {
+    soft: '#a5b4fc', medium: '#818cf8', hard: '#c084fc', negotiated: '#facc15',
+    face: '#0e0d1c', ring: ['#6366f1', '#22d3ee'], deck: ['#818cf8', '#3730a3'],
+  },
   kawaiineko: {
     soft: '#f9a8d4', medium: '#c4b5fd', hard: '#fb7185', negotiated: '#fde68a',
     face: '#18121d', ring: ['#f9a8d4', '#a5f3fc'], deck: ['#f9a8d4', '#c4b5fd'],
@@ -64,7 +80,15 @@ const backCanvases = {};
 
 export function getBackCanvas(deckId) {
   if (!backCanvases[deckId]) {
-    backCanvases[deckId] = deckId === 'kawaiineko' ? drawKawaiiBack() : deckId === 'sincensura' ? drawCensuraBack() : drawChutoBack();
+    const draw = {
+      kawaiineko: drawKawaiiBack,
+      sincensura: drawCensuraBack,
+      entredos: drawEntreDosBack,
+      primeracita: drawCitaBack,
+      trivia: drawTriviaBack,
+      carreteonline: drawOnlineBack,
+    }[deckId] || drawChutoBack;
+    backCanvases[deckId] = draw();
   }
   return backCanvases[deckId];
 }
@@ -133,6 +157,228 @@ function drawChutoBack() {
   ctx.fillText('CHUTO', W / 2 + 7, H / 2 - 270);
   ctx.fillText('· · ·', W / 2 + 7, H / 2 + 270);
 
+  return c;
+}
+
+// ---------- Utilidades de los reversos ----------
+function backBase(ctx, stops, frame, inner = 0.45) {
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  stops.forEach((col, i) => bg.addColorStop(i / (stops.length - 1), col));
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = frame;
+  ctx.lineWidth = 3.5;
+  roundRect(ctx, 30, 30, W - 60, H - 60, R - 16);
+  ctx.stroke();
+  ctx.globalAlpha = inner;
+  ctx.lineWidth = 1.2;
+  roundRect(ctx, 46, 46, W - 92, H - 92, R - 24);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function backTitle(ctx, text, color, y = 176, size = 32) {
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = color;
+  ctx.font = `800 ${size}px ${FONT}`;
+  spaced(ctx, 12);
+  ctx.fillText(text, W / 2 + 6, y);
+  spaced(ctx, 0);
+}
+
+function heartPath(ctx, x, y, s) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + s * 0.35);
+  ctx.bezierCurveTo(x - s * 1.1, y - s * 0.35, x - s * 0.55, y - s * 1.05, x, y - s * 0.5);
+  ctx.bezierCurveTo(x + s * 0.55, y - s * 1.05, x + s * 1.1, y - s * 0.35, x, y + s * 0.35);
+  ctx.closePath();
+}
+
+// "Entre Dos": dos corazones entrelazados en oro rosa sobre vino profundo
+function drawEntreDosBack() {
+  const [c, ctx] = makeCanvas(1.5);
+  const rose = '#e8a598';
+  backBase(ctx, ['#2a0a1a', '#12050c', '#2a0715'], rose);
+
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.fillStyle = rose;
+  for (let y = 70; y < H; y += 56) for (let x = (y / 56) % 2 ? 60 : 88; x < W; x += 56) { heartPath(ctx, x, y, 7); ctx.fill(); }
+  ctx.restore();
+
+  const cx = W / 2;
+  const cy = H / 2 + 20;
+  const g = ctx.createLinearGradient(cx - 200, cy - 150, cx + 200, cy + 150);
+  g.addColorStop(0, '#f6c1b4');
+  g.addColorStop(0.5, '#e8a598');
+  g.addColorStop(1, '#b76e79');
+  ctx.lineWidth = 16;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = g;
+  heartPath(ctx, cx - 62, cy - 10, 150);
+  ctx.stroke();
+  ctx.strokeStyle = '#be185d';
+  heartPath(ctx, cx + 62, cy + 10, 150);
+  ctx.stroke();
+  // entrelazado: vuelve a pintar un tramo del primero por encima
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cx - 10, cy - 40, 120, 160);
+  ctx.clip();
+  ctx.strokeStyle = g;
+  heartPath(ctx, cx - 62, cy - 10, 150);
+  ctx.stroke();
+  ctx.restore();
+
+  backTitle(ctx, 'ENTRE DOS', rose);
+  ctx.font = `600 22px ${FONT}`;
+  ctx.fillStyle = 'rgba(232,165,152,.75)';
+  spaced(ctx, 8);
+  ctx.fillText('SOLO PAREJAS · +18', W / 2 + 4, H - 170);
+  spaced(ctx, 0);
+  return c;
+}
+
+// "Primera Cita": burbujas de diálogo sobre un atardecer
+function drawCitaBack() {
+  const [c, ctx] = makeCanvas(1.5);
+  const cream = '#fff4e6';
+  backBase(ctx, ['#fb923c', '#f43f5e', '#7c2d12'], cream, 0.6);
+
+  // sol
+  const sun = ctx.createRadialGradient(W / 2, H * 0.62, 10, W / 2, H * 0.62, 260);
+  sun.addColorStop(0, 'rgba(255,237,213,.55)');
+  sun.addColorStop(1, 'rgba(255,237,213,0)');
+  ctx.fillStyle = sun;
+  ctx.fillRect(0, 0, W, H);
+
+  const bubble = (x, y, w, h, tail, fill, text, col) => {
+    roundRect(ctx, x, y, w, h, h / 2.2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x + (tail > 0 ? w - 70 : 70), y + h - 6);
+    ctx.lineTo(x + (tail > 0 ? w - 30 : 30), y + h + 44);
+    ctx.lineTo(x + (tail > 0 ? w - 120 : 120), y + h - 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = col;
+    ctx.font = `900 96px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + w / 2, y + h / 2 + 4);
+  };
+  bubble(110, H / 2 - 190, 330, 170, -1, cream, '¿y tú?', '#f43f5e');
+  ctx.font = `900 72px ${FONT}`;
+  bubble(W - 110 - 300, H / 2 + 40, 300, 160, 1, '#7c2d12', '♥', cream);
+
+  backTitle(ctx, 'PRIMERA CITA', cream);
+  return c;
+}
+
+// "Sabelotodo": gran signo de interrogación sobre fondo tipo plano técnico
+function drawTriviaBack() {
+  const [c, ctx] = makeCanvas(1.5);
+  const cyan = '#67e8f9';
+  backBase(ctx, ['#0b1730', '#0a1020', '#1e1b4b'], cyan);
+
+  ctx.save();
+  ctx.globalAlpha = 0.1;
+  ctx.strokeStyle = cyan;
+  ctx.lineWidth = 1;
+  for (let x = 60; x < W - 40; x += 40) { ctx.beginPath(); ctx.moveTo(x, 60); ctx.lineTo(x, H - 60); ctx.stroke(); }
+  for (let y = 60; y < H - 40; y += 40) { ctx.beginPath(); ctx.moveTo(60, y); ctx.lineTo(W - 60, y); ctx.stroke(); }
+  ctx.restore();
+
+  const cx = W / 2;
+  const cy = H / 2 + 10;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 200, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(103,232,249,.5)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.setLineDash([6, 14]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, 236, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const g = ctx.createLinearGradient(cx, cy - 170, cx, cy + 170);
+  g.addColorStop(0, '#67e8f9');
+  g.addColorStop(1, '#818cf8');
+  ctx.fillStyle = g;
+  ctx.font = `900 330px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('?', cx, cy + 14);
+
+  backTitle(ctx, 'SABELOTODO', cyan);
+  ctx.font = `600 22px ${FONT}`;
+  ctx.fillStyle = 'rgba(103,232,249,.7)';
+  spaced(ctx, 8);
+  ctx.fillText('CULTURA GENERAL', W / 2 + 4, H - 170);
+  spaced(ctx, 0);
+  return c;
+}
+
+// "Carrete Online": audífonos con ondas, en tonos violeta y azul
+function drawOnlineBack() {
+  const [c, ctx] = makeCanvas(1.5);
+  const light = '#c7d2fe';
+  backBase(ctx, ['#312e81', '#1e1b4b', '#0e7490'], light);
+
+  const cx = W / 2;
+  const cy = H / 2 + 30;
+  // ondas
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    ctx.strokeStyle = `rgba(103,232,249,${0.7 - i * 0.2})`;
+    ctx.lineWidth = 8;
+    for (const dir of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(cx, cy + 30, 230 + i * 44, dir < 0 ? Math.PI * 0.9 : -Math.PI * 0.1, dir < 0 ? Math.PI * 1.1 : Math.PI * 0.1);
+      ctx.stroke();
+    }
+  }
+  // arco de los audífonos
+  ctx.strokeStyle = light;
+  ctx.lineWidth = 22;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 150, Math.PI * 1.02, Math.PI * 1.98);
+  ctx.stroke();
+  // almohadillas
+  const pad = (x) => {
+    roundRect(ctx, x - 44, cy - 20, 88, 150, 36);
+    const g = ctx.createLinearGradient(x, cy - 20, x, cy + 130);
+    g.addColorStop(0, '#a5b4fc');
+    g.addColorStop(1, '#6366f1');
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = light;
+    ctx.stroke();
+  };
+  pad(cx - 150);
+  pad(cx + 150);
+  // copa al centro
+  ctx.strokeStyle = '#67e8f9';
+  ctx.lineWidth = 7;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - 46, cy + 10);
+  ctx.lineTo(cx + 46, cy + 10);
+  ctx.lineTo(cx, cy + 70);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + 70);
+  ctx.lineTo(cx, cy + 120);
+  ctx.moveTo(cx - 28, cy + 122);
+  ctx.lineTo(cx + 28, cy + 122);
+  ctx.stroke();
+
+  backTitle(ctx, 'CARRETE ONLINE', light, 176, 30);
   return c;
 }
 

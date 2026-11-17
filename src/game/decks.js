@@ -290,6 +290,182 @@ export const SINCENSURA_CHALLENGES = [
   { text: "Bebe si alguna vez mandaste una foto desnudo/a.", intensity: "soft", points: 15 },
 ];
 
+// --- MAZO ENTRE DOS (parejas, ultra hot) ---
+// Solo 2 jugadores: el partner es siempre tu pareja, nunca alguien al azar.
+export const ENTREDOS_CHALLENGES = [
+  // HARD
+  { text: "Hazle sexo oral a {partner} durante 30 segundos.", intensity: "hard", points: 100 },
+  { text: "Tócate frente a {partner} durante 30 segundos mientras te mira sin poder tocarte.", intensity: "hard", points: 100 },
+  { text: "Deja que {partner} te ate las manos y haga contigo lo que quiera durante un minuto.", intensity: "hard", points: 100 },
+  { text: "Desnúdate por completo y quédate así hasta tu próximo turno.", intensity: "hard", points: 95 },
+  { text: "Desnuda a {partner} prenda por prenda, besando cada parte que vayas descubriendo.", intensity: "hard", points: 95 },
+  { text: "Véndale los ojos a {partner} y recorre su cuerpo con la lengua durante 30 segundos.", intensity: "hard", points: 95 },
+  { text: "Acaricia los genitales de {partner} con la mano durante 20 segundos sin dejar de mirarle a los ojos.", intensity: "hard", points: 95 },
+  { text: "Hazle a {partner} lo que más te gusta que te hagan a ti, durante 30 segundos.", intensity: "hard", points: 95 },
+  { text: "Pon a {partner} en tu posición favorita y quédense así, sin ropa, durante 20 segundos.", intensity: "hard", points: 90 },
+  { text: "Siéntate sin ropa sobre {partner} y bésense sin usar las manos durante 30 segundos.", intensity: "hard", points: 90 },
+  { text: "Muerde suave el cuello, los pezones y el interior de los muslos de {partner}, en ese orden.", intensity: "hard", points: 90 },
+  { text: "Usa un hielo o un juguete sobre el cuerpo de {partner} durante 30 segundos.", intensity: "hard", points: 90 },
+  { text: "Durante un minuto, {partner} da las órdenes y tú obedeces.", intensity: "hard", points: 90 },
+  { text: "Haz un striptease completo para {partner} con la canción que elija.", intensity: "hard", points: 90 },
+  { text: "Masajea a {partner} sin ropa con aceite o crema durante un minuto, sin tocar sus genitales.", intensity: "hard", points: 85 },
+  { text: "Bebe un trago desde el cuerpo de {partner}, en el lugar que elija.", intensity: "hard", points: 85 },
+  { text: "Graba un audio gimiendo y deja que {partner} lo escuche ahora mismo.", intensity: "hard", points: 80 },
+  // MEDIUM
+  { text: "Cuéntale a {partner} la fantasía que nunca te atreviste a pedirle.", intensity: "medium", points: 70 },
+  { text: "Dile a {partner} con detalle cómo quieres que termine esta noche.", intensity: "medium", points: 70 },
+  { text: "Quítale la ropa interior a {partner} sin usar las manos.", intensity: "medium", points: 70 },
+  { text: "Besa a {partner} donde más le guste sin que te lo diga. Tienes tres intentos.", intensity: "medium", points: 65 },
+  { text: "Dile a {partner} qué parte de su cuerpo te vuelve loco/a, y demuéstralo.", intensity: "medium", points: 65 },
+  { text: "Susúrrale a {partner} lo que más te gustó de la última vez.", intensity: "medium", points: 60 },
+  { text: "Pasa un hielo por la espalda de {partner} y luego besa el mismo camino.", intensity: "medium", points: 60 },
+  { text: "Imita para {partner} el sonido que haces cuando acabas.", intensity: "medium", points: 60 },
+  { text: "Dile a {partner} tres cosas que quieres que te haga, de menos a más.", intensity: "medium", points: 60 },
+  { text: "Deja que {partner} te bese el cuello durante 20 segundos sin que te puedas mover.", intensity: "medium", points: 55 },
+  { text: "Nombra un lugar donde nunca lo han hecho y donde te gustaría hacerlo con {partner}.", intensity: "medium", points: 55 },
+  { text: "Bebe si quieres probar algo nuevo con {partner} esta noche, y di qué.", intensity: "medium", points: 55 },
+  { text: "Elige una prenda de {partner}: tiene que quitársela y dártela.", intensity: "medium", points: 50 },
+  { text: "Bebe si alguna vez pensaste en {partner} mientras te tocabas.", intensity: "medium", points: 50 },
+  // SOFT
+  { text: "Dale a {partner} un beso lento en la boca durante 10 segundos, sin prisa.", intensity: "soft", points: 30 },
+  { text: "Dile a {partner} en qué momento exacto te empezó a gustar.", intensity: "soft", points: 25 },
+  { text: "Cuéntale a {partner} qué ropa te gusta verle puesta… y quitada.", intensity: "soft", points: 25 },
+  { text: "Mírense a los ojos durante 30 segundos. Si te ríes primero, pierdes.", intensity: "soft", points: 20 },
+  { text: "Dile a {partner} qué es lo que más te excita de su voz.", intensity: "soft", points: 20 },
+  { text: "Dale a {partner} un masaje de cuello de 30 segundos.", intensity: "soft", points: 20 },
+  { text: "Elige la canción de esta noche y explícale a {partner} por qué.", intensity: "soft", points: 15 },
+  { text: "Bebe si hoy pensaste en sexo con {partner}.", intensity: "soft", points: 15 },
+];
+
+// --- MAZO PRIMERA CITA (rompehielo para conocerse) ---
+export const PRIMERACITA_CHALLENGES = [
+  // SOFT: para empezar
+  { text: "¿Cuál es tu comida favorita y cuál no soportas?", intensity: "soft", points: 10 },
+  { text: "¿Qué canción pondrías ahora mismo si pudieras?", intensity: "soft", points: 10 },
+  { text: "¿Perro, gato o ninguno? Defiende tu respuesta.", intensity: "soft", points: 10 },
+  { text: "¿Playa o montaña? ¿Por qué?", intensity: "soft", points: 10 },
+  { text: "¿Qué serie o película has visto más de tres veces?", intensity: "soft", points: 10 },
+  { text: "Cuenta algo que te hizo reír esta semana.", intensity: "soft", points: 15 },
+  { text: "¿Cómo sería tu domingo ideal?", intensity: "soft", points: 15 },
+  { text: "¿Cuál es el mejor viaje que has hecho?", intensity: "soft", points: 15 },
+  { text: "Bebe si llegaste con nervios a esta cita.", intensity: "soft", points: 15 },
+  { text: "¿Cuál es tu talento más inútil? Demuéstralo.", intensity: "soft", points: 20 },
+  { text: "Di algo de ti que nadie adivinaría solo con verte.", intensity: "soft", points: 25 },
+  { text: "¿Qué fue lo primero que pensaste al ver a {partner} hoy?", intensity: "soft", points: 25 },
+  // MEDIUM: más profundo
+  { text: "¿Qué es algo que siempre quisiste aprender y todavía no aprendes?", intensity: "medium", points: 40 },
+  { text: "¿Cuál es tu lenguaje del amor: palabras, regalos, tiempo juntos, contacto o ayudar?", intensity: "medium", points: 40 },
+  { text: "Imita cómo crees que {partner} saluda a sus amigos.", intensity: "medium", points: 40 },
+  { text: "¿Cuál ha sido tu peor cita? Cuenta los detalles.", intensity: "medium", points: 45 },
+  { text: "¿Qué es lo que más orgullo te da de ti?", intensity: "medium", points: 45 },
+  { text: "Cuenta la decisión más impulsiva que has tomado.", intensity: "medium", points: 45 },
+  { text: "¿Qué canción te recuerda a tu primer amor?", intensity: "medium", points: 45 },
+  { text: "Dile a {partner} algo que te haya gustado de esta cita hasta ahora.", intensity: "medium", points: 50 },
+  { text: "Bebe si revisaste las redes de {partner} antes de esta cita.", intensity: "medium", points: 50 },
+  { text: "¿Cuál es tu red flag más evidente?", intensity: "medium", points: 55 },
+  { text: "¿Qué buscas en una pareja y casi nunca encuentras?", intensity: "medium", points: 55 },
+  { text: "¿Qué es lo que más te costaría perdonar?", intensity: "medium", points: 55 },
+  // HARD: sin filtro
+  { text: "¿Cuál es tu mayor miedo en una relación?", intensity: "hard", points: 70 },
+  { text: "Toma la mano de {partner} hasta tu próximo turno.", intensity: "hard", points: 70 },
+  { text: "¿Qué te gustaría que {partner} supiera de ti antes de una segunda cita?", intensity: "hard", points: 75 },
+  { text: "¿Qué te hizo aceptar esta cita?", intensity: "hard", points: 75 },
+  { text: "Cuenta la vez que más te rompieron el corazón.", intensity: "hard", points: 80 },
+  { text: "Dile a {partner} qué te gustaría que pasara al final de esta noche.", intensity: "hard", points: 85 },
+  { text: "Del 1 al 10, ¿cuántas ganas tienes de una segunda cita? Sin mentir.", intensity: "hard", points: 90 },
+  { text: "Dale un beso a {partner}… donde te parezca apropiado.", intensity: "hard", points: 90 },
+];
+
+// --- MAZO SABELOTODO (trivia de cultura general) ---
+// Cada carta trae su respuesta, que se revela antes de decidir si acertaste.
+export const TRIVIA_CHALLENGES = [
+  // Fácil
+  { text: "¿Cuál es el planeta más grande del sistema solar?", answer: "Júpiter", intensity: "soft", points: 10 },
+  { text: "¿En qué país están las pirámides de Giza?", answer: "Egipto", intensity: "soft", points: 10 },
+  { text: "¿Cuántos lados tiene un hexágono?", answer: "Seis", intensity: "soft", points: 10 },
+  { text: "¿Cuál es el océano más grande del mundo?", answer: "El océano Pacífico", intensity: "soft", points: 10 },
+  { text: "¿Quién pintó la Mona Lisa?", answer: "Leonardo da Vinci", intensity: "soft", points: 15 },
+  { text: "¿Cuál es la capital de Japón?", answer: "Tokio", intensity: "soft", points: 10 },
+  { text: "¿Cuántas patas tiene una araña?", answer: "Ocho", intensity: "soft", points: 10 },
+  { text: "¿Qué gas absorben las plantas para hacer la fotosíntesis?", answer: "Dióxido de carbono (CO₂)", intensity: "soft", points: 20 },
+  { text: "¿Cuál es el animal terrestre más rápido?", answer: "El guepardo", intensity: "soft", points: 15 },
+  { text: "¿En qué año llegó el ser humano a la Luna?", answer: "1969", intensity: "soft", points: 25 },
+  { text: "¿Qué metal tiene el símbolo químico Au?", answer: "El oro", intensity: "soft", points: 20 },
+  { text: "¿Cuántos jugadores por equipo hay en la cancha en un partido de fútbol?", answer: "Once", intensity: "soft", points: 10 },
+  { text: "¿Cuál es el río más largo de Sudamérica?", answer: "El Amazonas", intensity: "soft", points: 15 },
+  { text: "¿En qué año llegó Cristóbal Colón a América?", answer: "1492", intensity: "soft", points: 20 },
+  { text: "¿Quién escribió 'Don Quijote de la Mancha'?", answer: "Miguel de Cervantes", intensity: "soft", points: 20 },
+  // Media
+  { text: "¿Cuál es la capital de Australia?", answer: "Canberra", intensity: "medium", points: 50 },
+  { text: "¿Quién escribió 'Cien años de soledad'?", answer: "Gabriel García Márquez", intensity: "medium", points: 40 },
+  { text: "¿Cuál es el gas más abundante en la atmósfera terrestre?", answer: "El nitrógeno", intensity: "medium", points: 55 },
+  { text: "¿Cuántos huesos tiene el cuerpo humano adulto?", answer: "206", intensity: "medium", points: 60 },
+  { text: "¿En qué ciudad está el Coliseo?", answer: "Roma", intensity: "medium", points: 40 },
+  { text: "¿Qué poeta chileno ganó el Premio Nobel de Literatura en 1971?", answer: "Pablo Neruda", intensity: "medium", points: 45 },
+  { text: "¿Quién fue la primera persona latinoamericana en ganar el Nobel de Literatura?", answer: "Gabriela Mistral (1945)", intensity: "medium", points: 55 },
+  { text: "¿Cuál es el país más grande del mundo por superficie?", answer: "Rusia", intensity: "medium", points: 40 },
+  { text: "¿Qué científico formuló la teoría de la relatividad?", answer: "Albert Einstein", intensity: "medium", points: 40 },
+  { text: "¿Cuál es la montaña más alta de América?", answer: "El Aconcagua", intensity: "medium", points: 50 },
+  { text: "¿En qué año cayó el Muro de Berlín?", answer: "1989", intensity: "medium", points: 55 },
+  { text: "¿Cuál es la moneda oficial de Japón?", answer: "El yen", intensity: "medium", points: 40 },
+  { text: "¿Cuántos corazones tiene un pulpo?", answer: "Tres", intensity: "medium", points: 60 },
+  { text: "¿Qué banda grabó el disco 'Abbey Road'?", answer: "The Beatles", intensity: "medium", points: 45 },
+  { text: "¿Cuál es el desierto no polar más árido del mundo?", answer: "El desierto de Atacama", intensity: "medium", points: 50 },
+  { text: "¿Qué órgano produce la insulina?", answer: "El páncreas", intensity: "medium", points: 55 },
+  { text: "¿Cuál es el único mamífero capaz de volar?", answer: "El murciélago", intensity: "medium", points: 45 },
+  // Difícil
+  { text: "¿Cuál es el número atómico del carbono?", answer: "6", intensity: "hard", points: 80 },
+  { text: "¿En qué año comenzó la Primera Guerra Mundial?", answer: "1914", intensity: "hard", points: 75 },
+  { text: "¿Cuál es la capital de Canadá?", answer: "Ottawa", intensity: "hard", points: 70 },
+  { text: "¿Quién compuso 'Las cuatro estaciones'?", answer: "Antonio Vivaldi", intensity: "hard", points: 80 },
+  { text: "¿Cuál es el hueso más largo del cuerpo humano?", answer: "El fémur", intensity: "hard", points: 70 },
+  { text: "¿Qué idioma tiene más hablantes nativos en el mundo?", answer: "El chino mandarín", intensity: "hard", points: 75 },
+  { text: "¿Cuánto tarda, aproximadamente, la luz del Sol en llegar a la Tierra?", answer: "Unos 8 minutos", intensity: "hard", points: 90 },
+  { text: "¿En qué país nació Frida Kahlo?", answer: "México", intensity: "hard", points: 70 },
+  { text: "¿Cuál es el lago navegable más alto del mundo?", answer: "El lago Titicaca", intensity: "hard", points: 85 },
+  { text: "¿Qué planeta tiene el día más largo del sistema solar?", answer: "Venus", intensity: "hard", points: 95 },
+  { text: "¿Cuál es la capital de Nueva Zelanda?", answer: "Wellington", intensity: "hard", points: 85 },
+];
+
+// --- MAZO CARRETE ONLINE (para jugar por videollamada, p. ej. Discord) ---
+export const ONLINE_CHALLENGES = [
+  // SOFT
+  { text: "Muestra a la cámara lo que estás tomando y brinda con todos.", intensity: "soft", points: 10 },
+  { text: "Bebe si estás en pijama.", intensity: "soft", points: 10 },
+  { text: "Bebe si estás jugando desde la cama.", intensity: "soft", points: 10 },
+  { text: "Bebe si alguna vez te quedaste dormido/a en una llamada.", intensity: "soft", points: 10 },
+  { text: "Bebe si tienes la cámara apagada.", intensity: "soft", points: 15 },
+  { text: "Muestra lo que tienes más cerca a tu izquierda y cuenta su historia.", intensity: "soft", points: 15 },
+  { text: "Imita a alguien famoso hasta que alguien adivine quién es.", intensity: "soft", points: 20 },
+  { text: "Haz tu mejor imitación de {partner}.", intensity: "soft", points: 20 },
+  { text: "Habla con el acento que elija {partner} hasta tu próximo turno.", intensity: "soft", points: 20 },
+  { text: "Pon la canción que elija {partner} y baila 10 segundos frente a la cámara.", intensity: "soft", points: 25 },
+  { text: "Di en voz alta lo último que buscaste en Google.", intensity: "soft", points: 25 },
+  // MEDIUM
+  { text: "Ve a buscar el objeto más raro de tu casa en 30 segundos y muéstralo.", intensity: "medium", points: 40 },
+  { text: "Cambia tu nombre en la llamada por el que elija {partner} hasta el final.", intensity: "medium", points: 40 },
+  { text: "Di lo que de verdad piensas del último meme que mandó {partner}.", intensity: "medium", points: 40 },
+  { text: "Canta el coro de una canción que elija {partner}.", intensity: "medium", points: 45 },
+  { text: "Cuenta la peor vergüenza que pasaste en una videollamada.", intensity: "medium", points: 45 },
+  { text: "Bebe si tienes una pestaña abierta que no mostrarías compartiendo pantalla.", intensity: "medium", points: 45 },
+  { text: "Muestra tu historial de YouTube o TikTok de hoy.", intensity: "medium", points: 50 },
+  { text: "Toma tres sorbos seguidos frente a la cámara sin hacer muecas.", intensity: "medium", points: 50 },
+  { text: "Lee en voz alta el último mensaje que mandaste (sin decir a quién).", intensity: "medium", points: 55 },
+  { text: "Comparte pantalla y muestra tus últimas 5 fotos de la galería.", intensity: "medium", points: 60 },
+  { text: "Confiesa a quién de la llamada has stalkeado en redes.", intensity: "medium", points: 65 },
+  { text: "Deja que {partner} escriba una historia o estado en tus redes durante 10 minutos.", intensity: "medium", points: 70 },
+  // HARD
+  { text: "Muestra tu pieza a la cámara tal como está, sin ordenar nada.", intensity: "hard", points: 70 },
+  { text: "Deja que {partner} lea en voz alta tus canciones más escuchadas de Spotify.", intensity: "hard", points: 70 },
+  { text: "Bebe un sorbo por cada persona de la llamada con la que alguna vez saliste.", intensity: "hard", points: 75 },
+  { text: "Comparte pantalla y abre tu carpeta de descargas durante 10 segundos.", intensity: "hard", points: 80 },
+  { text: "Muestra la última foto de tu galería, sea la que sea.", intensity: "hard", points: 85 },
+  { text: "Confiesa quién de la llamada te parece más atractivo/a.", intensity: "hard", points: 85 },
+  { text: "Manda un audio cantando al último grupo donde escribiste.", intensity: "hard", points: 85 },
+  { text: "Llama a un contacto que no esté en la llamada, ponlo en altavoz y dile que lo/la extrañas.", intensity: "hard", points: 90 },
+  { text: "Deja que {partner} elija tu foto de perfil por 24 horas.", intensity: "hard", points: 95 },
+];
+
 // Lo que caracteriza a cada mazo es su reverso (ver scene/cardTextures.js)
 export const DECKS = {
   chuto15: {
@@ -304,6 +480,37 @@ export const DECKS = {
     subtitle: 'Extremo · +18',
     challenges: SINCENSURA_CHALLENGES,
   },
+  entredos: {
+    id: 'entredos',
+    name: 'Entre Dos',
+    subtitle: 'Parejas · ultra hot',
+    challenges: ENTREDOS_CHALLENGES,
+    minPlayers: 2,
+    maxPlayers: 2,
+  },
+  primeracita: {
+    id: 'primeracita',
+    name: 'Primera Cita',
+    subtitle: 'Rompehielo',
+    challenges: PRIMERACITA_CHALLENGES,
+    minPlayers: 2,
+    maxPlayers: 2,
+    levelLabels: { soft: 'Para empezar', medium: 'Más profundo', hard: 'Sin filtro' },
+  },
+  trivia: {
+    id: 'trivia',
+    name: 'Sabelotodo',
+    subtitle: 'Trivia de cultura general',
+    challenges: TRIVIA_CHALLENGES,
+    kind: 'trivia',
+    levelLabels: { soft: 'Fácil', medium: 'Media', hard: 'Difícil' },
+  },
+  carreteonline: {
+    id: 'carreteonline',
+    name: 'Carrete Online',
+    subtitle: 'Por videollamada',
+    challenges: ONLINE_CHALLENGES,
+  },
   kawaiineko: {
     id: 'kawaiineko',
     name: 'Kawaii Neko',
@@ -313,4 +520,10 @@ export const DECKS = {
     challenges: KAWAII_CHALLENGES,
   },
 };
+
+export const MAX_PLAYERS = 12;
+export const playerLimits = (deckId) => ({
+  min: DECKS[deckId].minPlayers || 2,
+  max: DECKS[deckId].maxPlayers || MAX_PLAYERS,
+});
 export const DECK_IDS = Object.keys(DECKS);

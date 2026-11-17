@@ -1,14 +1,14 @@
 import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import {
   Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ChevronUp, ChevronLeft,
-  Smartphone, Wifi, WifiOff, Loader2, Crown, Download,
+  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2,
 } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import QRCode from 'qrcode';
-import { DECKS, DECK_IDS } from './game/decks.js';
+import { DECKS, DECK_IDS, playerLimits } from './game/decks.js';
 import {
   WIN_SCORE, canAct, reduce, createLobby, startGame, cardView, currentChallenge, getStakes,
-  isDrinkChallenge, plainChallengeText,
+  isDrinkChallenge, plainChallengeText, isTrivia,
 } from './game/engine.js';
 import { hostRoom, joinRoom, normalizeCode } from './net/room.js';
 import { getBackImageURL } from './scene/cardArt.js';
@@ -138,7 +138,6 @@ const ScoreSheet = ({ open, onClose, players }) => {
 const Scene = React.lazy(() => import('./scene/Scene.jsx'));
 
 const APP_URL = 'https://chuto15.netlify.app';
-const MAX_PLAYERS = 12;
 
 const initialJoinCode = (() => {
   try {
@@ -265,14 +264,18 @@ const App = () => {
       setNameError('Ya hay un jugador con ese nombre.');
       return;
     }
-    if (localNames.length >= MAX_PLAYERS) return;
+    if (localNames.length >= playerLimits(deckId).max) {
+      setNameError(`Este mazo es para ${playerLimits(deckId).max} jugadores.`);
+      return;
+    }
     setNameError('');
     setLocalNames([...localNames, name]);
     setNewPlayerName('');
   };
 
   const startLocal = () => {
-    if (localNames.length < 2) return;
+    const lim = playerLimits(deckId);
+    if (localNames.length < lim.min || localNames.length > lim.max) return;
     setMode('local');
     commit(startGame(createLobby(deckId, localNames)));
     setScreen('game');
@@ -313,7 +316,9 @@ const App = () => {
           return { ok: true, name: existing.name };
         }
         if (g.phase !== 'lobby') return { ok: false, reason: 'La partida ya comenzó.' };
-        if (g.players.length >= MAX_PLAYERS) return { ok: false, reason: 'La sala está llena.' };
+        if (g.players.length >= playerLimits(g.deckId).max) {
+          return { ok: false, reason: playerLimits(g.deckId).max === 2 ? 'Este mazo es para 2 personas y la sala ya está completa.' : 'La sala está llena.' };
+        }
         setTimeout(() => {
           const cur = gameRef.current;
           commit({ ...cur, players: [...cur.players, { name: nm, score: 0, sips: 0 }] });
@@ -425,6 +430,27 @@ const App = () => {
   const verdict = playing ? game.verdict : null;
   const challenge = playing ? currentChallenge(game) : null;
   const drinkType = isDrinkChallenge(challenge);
+  const trivia = playing && isTrivia(game);
+  const limits = playerLimits(game ? game.deckId : deckId);
+  const [copied, setCopied] = useState(false);
+  const shareLink = async () => {
+    if (!net || !net.code) return;
+    const url = `${APP_URL}/?sala=${net.code}`;
+    const text = `Únete a mi sala de Chuto15 (código ${net.code})`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Chuto15', text, url });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}: ${url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {}
+  };
   const stakes = playing ? getStakes(game) : { points: 0, sips: 0 };
   const plainText = playing ? plainChallengeText(game) : '';
   const card = useMemo(() => (game ? cardView(game) : null), [game && game.cardKey, phase, game && game.deckId]);
@@ -494,22 +520,26 @@ const App = () => {
                   ) : null}
                 />
                 <Title kicker="Paso 1">Elige un mazo</Title>
-                <div className="flex-1" />
-                <div className="space-y-3">
-                  {DECK_IDS.map((id) => {
-                    const d = DECKS[id];
-                    return (
-                      <Option key={id} active={deckId === id} onClick={() => setDeckId(id)} className="p-3 flex items-center gap-4">
-                        <img src={deckImages[id]} alt="" className="w-16 h-[5.6rem] rounded-lg object-cover shadow-lg" />
-                        <span className="flex-1 min-w-0">
-                          <span className="block font-bold text-lg leading-tight">{d.name}</span>
-                          {d.kana && <span className="block text-sm text-pink-200/90">{d.kana} · {d.kanji}</span>}
-                          <span className="block text-xs text-neutral-500 mt-0.5">{d.subtitle} · {d.challenges.length} cartas</span>
-                        </span>
-                        <span className={`w-5 h-5 rounded-full border-2 shrink-0 ${deckId === id ? 'border-red-500 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.7)]' : 'border-white/20'}`} />
-                      </Option>
-                    );
-                  })}
+                <div className="flex-1 min-h-0 flex flex-col justify-end mt-4">
+                  <div className="overflow-y-auto min-h-0 space-y-2 pointer-events-auto -mx-1 px-1 py-1">
+                    {DECK_IDS.map((id) => {
+                      const d = DECKS[id];
+                      const lim = playerLimits(id);
+                      return (
+                        <Option key={id} active={deckId === id} onClick={() => setDeckId(id)} className="p-2.5 flex items-center gap-3.5">
+                          <img src={deckImages[id]} alt="" className="w-11 h-[3.85rem] rounded-md object-cover shadow-lg shrink-0" />
+                          <span className="flex-1 min-w-0">
+                            <span className="block font-bold leading-tight">{d.name}</span>
+                            {d.kana && <span className="block text-[11px] leading-tight text-pink-200/90">{d.kana} · {d.kanji}</span>}
+                            <span className="block text-xs text-neutral-500 mt-0.5 truncate">
+                              {d.subtitle} · {d.challenges.length} cartas{lim.max === 2 ? ' · para 2' : ''}
+                            </span>
+                          </span>
+                          <span className={`w-4 h-4 rounded-full border-2 shrink-0 mr-1 ${deckId === id ? 'border-red-500 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.7)]' : 'border-white/20'}`} />
+                        </Option>
+                      );
+                    })}
+                  </div>
                 </div>
                 <motion.div variants={item} className="mt-4">
                   <Primary onClick={() => setScreen('mode')}>Continuar</Primary>
@@ -573,11 +603,15 @@ const App = () => {
                         </motion.span>
                       ))}
                     </AnimatePresence>
-                    {localNames.length === 0 && <span className="text-sm text-neutral-600 py-1.5">Mínimo 2 para empezar</span>}
+                    {localNames.length === 0 && (
+                      <span className="text-sm text-neutral-600 py-1.5">{limits.max === 2 ? 'Este mazo es para 2 personas' : 'Mínimo 2 para empezar'}</span>
+                    )}
                   </div>
                 </Glass>
                 <motion.div variants={item} className="mt-4">
-                  <Primary onClick={startLocal} disabled={localNames.length < 2}>{localNames.length < 2 ? 'Faltan jugadores' : 'Comenzar'}</Primary>
+                  <Primary onClick={startLocal} disabled={localNames.length < limits.min || localNames.length > limits.max}>
+                    {localNames.length < limits.min ? 'Faltan jugadores' : 'Comenzar'}
+                  </Primary>
                 </motion.div>
               </motion.div>
             )}
@@ -657,9 +691,17 @@ const App = () => {
                         </div>
                       </motion.div>
                     )}
+                    <motion.div variants={item} className="flex justify-center mt-3">
+                      <Ghost onClick={shareLink} className="px-4 py-2 text-xs">
+                        {copied ? <Check size={14} className="text-green-400" /> : <Share2 size={14} />}
+                        {copied ? 'Link copiado' : 'Compartir link (Discord, WhatsApp…)'}
+                      </Ghost>
+                    </motion.div>
                     <div className="flex-1" />
                     <Glass className="p-5 pointer-events-auto">
-                      <p className="text-[11px] uppercase tracking-[0.3em] text-neutral-500 mb-3">Jugadores · {game.players.length}</p>
+                      <p className="text-[11px] uppercase tracking-[0.3em] text-neutral-500 mb-3">
+                        Jugadores · {game.players.length}{limits.max === 2 ? ' de 2' : ''}
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         <AnimatePresence initial={false}>
                           {game.players.map((p, i) => (
@@ -676,8 +718,8 @@ const App = () => {
                     </Glass>
                     <motion.div variants={item} className="mt-4">
                       {net.role === 'host' ? (
-                        <Primary onClick={() => commit(startGame(gameRef.current))} disabled={game.players.length < 2}>
-                          {game.players.length < 2 ? 'Esperando jugadores…' : 'Comenzar'}
+                        <Primary onClick={() => commit(startGame(gameRef.current))} disabled={game.players.length < limits.min || game.players.length > limits.max}>
+                          {game.players.length < limits.min ? 'Esperando jugadores…' : 'Comenzar'}
                         </Primary>
                       ) : (
                         <p className="text-center text-sm text-neutral-400 py-4">Esperando que {game.players[0].name} comience…</p>
@@ -778,6 +820,41 @@ const App = () => {
                           <p className="h-[7.25rem] flex items-center justify-center text-sm text-neutral-400">Esperando que {curPlayer.name} lance la carta…</p>
                         )}
                       </motion.div>
+                    ) : myTurn && trivia ? (
+                      <motion.div key={game.revealed ? 'trivia-answer' : 'trivia-ask'} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }} className="space-y-2.5">
+                        {game.revealed ? (
+                          <>
+                            <p className="text-center leading-tight">
+                              <span className="block text-[10px] uppercase tracking-[0.4em] text-neutral-500">Respuesta</span>
+                              <span className="text-xl font-bold text-cyan-300">{challenge.answer}</span>
+                            </p>
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <motion.button whileTap={{ scale: 0.96 }} onClick={() => act({ type: 'done' })}
+                                className="rounded-full bg-white text-black py-3.5 font-bold flex items-center justify-center gap-2">
+                                <Check size={18} strokeWidth={3} /> Acerté
+                              </motion.button>
+                              <Ghost onClick={() => act({ type: 'fail' })} className="py-3.5">
+                                <X size={16} className="text-red-400" /> Fallé
+                              </Ghost>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <motion.button whileTap={{ scale: 0.96 }} onClick={() => act({ type: 'reveal' })}
+                              className="w-full rounded-full bg-white text-black py-4 font-bold flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.12)]">
+                              <Eye size={20} /> Ver respuesta
+                            </motion.button>
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <Ghost onClick={() => act({ type: 'fail' })} className="py-3">
+                                <Wine size={16} className="text-red-400" /> Paso, bebo
+                              </Ghost>
+                              <Ghost onClick={() => act({ type: 'negotiate' })} disabled={game.negotiated} className="py-3">
+                                <Shuffle size={16} className="text-purple-400" /> Más difícil
+                              </Ghost>
+                            </div>
+                          </>
+                        )}
+                      </motion.div>
                     ) : myTurn ? (
                       <motion.div key="actions" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }} className="space-y-2.5">
                         <motion.button whileTap={{ scale: 0.96 }} onClick={() => act({ type: 'done' })}
@@ -806,9 +883,15 @@ const App = () => {
                         </Ghost>
                       </motion.div>
                     ) : (
-                      <motion.p key="wait" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-[7.25rem] flex items-center justify-center text-sm text-neutral-400">
+                      <motion.div key={`wait-${trivia && game.revealed ? 'r' : ''}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-[7.25rem] flex flex-col items-center justify-center gap-2 text-sm text-neutral-400">
+                        {trivia && game.revealed && (
+                          <p className="text-center leading-tight">
+                            <span className="block text-[10px] uppercase tracking-[0.4em] text-neutral-500">Respuesta</span>
+                            <span className="text-xl font-bold text-cyan-300">{challenge.answer}</span>
+                          </p>
+                        )}
                         Esperando a {curPlayer.name}…
-                      </motion.p>
+                      </motion.div>
                     )}
                   </AnimatePresence>
                 </div>

@@ -40,6 +40,8 @@ const pickPartnerIndex = (count, exclude) => {
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 export const challengesOf = (state) => DECKS[state.deckId].challenges;
+export const isTrivia = (state) => !!state && DECKS[state.deckId].kind === 'trivia';
+const levelLabel = (deckId, intensity) => (DECKS[deckId].levelLabels || LEVEL_LABELS)[intensity];
 export const currentChallenge = (state) =>
   state && state.challengeIdx != null ? challengesOf(state)[state.challengeIdx] : null;
 
@@ -63,6 +65,7 @@ const draw = (state, playerIdx) => {
     challengeIdx: idx,
     partner: state.players.length > 1 && c.text.includes('{partner}') ? pickPartnerIndex(state.players.length, playerIdx) : null,
     negotiated: false,
+    revealed: false,
     cardKey: state.cardKey + 1,
     verdict: null,
   };
@@ -103,6 +106,7 @@ export const canAct = (state, action, actorName) => {
     case 'done':
     case 'fail':
     case 'negotiate':
+    case 'reveal':
       return cur.name === actorName && !state.verdict;
     case 'continue':
       return cur.name === actorName && !!state.verdict;
@@ -129,7 +133,9 @@ const resolve = (state, players, kind, label, title, rows) => {
       label,
       title,
       rows,
-      note: state.negotiated ? 'Apuesta negociada · premio ×1.5 · castigo ×2' : null,
+      note: isTrivia(state)
+        ? `Respuesta: ${currentChallenge(state).answer}`
+        : state.negotiated ? 'Apuesta negociada · premio ×1.5 · castigo ×2' : null,
       winnerName: leaders.length ? leaders[0].name : null,
       gameOver: leaders.length > 0,
     },
@@ -145,7 +151,11 @@ export const reduce = (state, action) => {
   const cur = state.current;
   const partner = state.partner;
 
+  const trivia = isTrivia(state);
+
   switch (action.type) {
+    case 'reveal':
+      return state.verdict ? state : { ...state, revealed: true };
     case 'done': {
       if (state.verdict) return state;
       const players = state.players.map((p, i) => {
@@ -157,6 +167,7 @@ export const reduce = (state, action) => {
       const rows = [pointsRow(me, points)];
       if (partner != null) rows.push(pointsRow(players[partner], Math.floor(points / 2)));
       const drink = isDrinkChallenge(c);
+      if (trivia) return resolve(state, players, 'done', 'Respuesta correcta', `¡Bien, ${me.name}!`, rows);
       return resolve(state, players, 'done', 'Reto cumplido', drink ? `¡Salud, ${me.name}!` : `¡Bien hecho, ${me.name}!`, rows);
     }
     case 'fail': {
@@ -164,6 +175,7 @@ export const reduce = (state, action) => {
       const players = state.players.map((p, i) => (i === cur ? { ...p, sips: p.sips + sips } : p));
       const me = players[cur];
       const drink = isDrinkChallenge(c);
+      if (trivia) return resolve(state, players, 'fail', 'Incorrecto', `${me.name} no la sabía`, [sipsRow(me, sips)]);
       return resolve(state, players, 'fail', 'Castigo', drink ? `${me.name} se negó` : `${me.name} no se atrevió`, [sipsRow(me, sips)]);
     }
     case 'refuse': {
@@ -203,6 +215,7 @@ export const reduce = (state, action) => {
         challengeIdx: idx,
         partner: newPartner,
         negotiated: true,
+        revealed: false,
         exitType: 'swap',
         cardKey: state.cardKey + 1,
         toast: { id: state.cardKey + 1, text: 'Doble riesgo' },
@@ -237,7 +250,7 @@ export const cardView = (state) => {
     deckId: state.deckId,
     intensity: c.intensity,
     negotiated: state.negotiated,
-    label: state.negotiated ? 'Negociado' : isDrinkChallenge(c) ? 'Bebe o no' : LEVEL_LABELS[c.intensity],
+    label: state.negotiated ? 'Negociado' : isDrinkChallenge(c) ? 'Bebe o no' : levelLabel(state.deckId, c.intensity),
     tokens,
     win: points,
     sips,
