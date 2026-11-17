@@ -60,11 +60,16 @@ const setOpacity = (obj, o) => {
 };
 
 // ---------- Mazo flotante ----------
-const Deck = ({ visible }) => {
+// raised: el mazo sube solo mientras se saca una carta; el resto del tiempo
+// se hunde bajo el piso para no quedar detrás de la carta que se está leyendo.
+const DECK_HIDDEN_DROP = 2.8;
+const Deck = ({ visible, raised }) => {
   const g = useRef();
+  const drop = useRef({ current: DECK_HIDDEN_DROP });
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime;
-    g.current.position.set(DECK_POS.x, DECK_POS.y + Math.sin(t * 0.8) * 0.05, DECK_POS.z);
+    easing.damp(drop.current, 'current', raised ? 0 : DECK_HIDDEN_DROP, raised ? 0.18 : 0.35, dt);
+    g.current.position.set(DECK_POS.x, DECK_POS.y - drop.current.current + Math.sin(t * 0.8) * 0.05, DECK_POS.z);
     easing.damp(g.current.scale, 'x', visible ? DECK_SCALE : 0.001, 0.35, dt);
     g.current.scale.y = g.current.scale.z = g.current.scale.x;
   });
@@ -219,16 +224,26 @@ const useCardView = () => {
 const World = ({ mode, card, exitType }) => {
   const view = useCardView();
   const [cards, setCards] = useState([]);
+  const [deckUp, setDeckUp] = useState(false);
   const exitRef = useRef(exitType);
   exitRef.current = exitType;
 
   useEffect(() => {
     const exit = exitRef.current || 'done';
+    // El mazo sube primero; la carta sale cuando ya está arriba
+    const delay = exit === 'swap' ? 0.65 : 0.4;
     setCards((cs) => {
       const old = cs.map((c) => (c.exit ? c : { ...c, exit }));
       if (!card) return old;
-      return [...old, { key: card.key, data: card, exit: null, delay: exit === 'swap' && cs.length ? 0.4 : 0.05 }];
+      return [...old, { key: card.key, data: card, exit: null, delay }];
     });
+    if (!card) {
+      setDeckUp(false);
+      return undefined;
+    }
+    setDeckUp(true);
+    const id = setTimeout(() => setDeckUp(false), (delay + 0.75) * 1000);
+    return () => clearTimeout(id);
   }, [card ? card.key : null]);
 
   return (
@@ -237,7 +252,7 @@ const World = ({ mode, card, exitType }) => {
       <fog attach="fog" args={['#0a0a0a', 9, 22]} />
       <MovingLights />
 
-      <Deck visible={mode === 'playing'} />
+      <Deck visible={mode === 'playing'} raised={deckUp} />
       <CardRing mode={mode} view={view} />
       {cards.map((c) => (
         <ActiveCard
