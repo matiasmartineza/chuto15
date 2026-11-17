@@ -605,7 +605,7 @@ const App = () => {
                 </div>
 
                 {/* Tira de miniaturas */}
-                <div className="mt-4 -mx-5 px-5 flex gap-2.5 overflow-x-auto pointer-events-auto pb-1 justify-start sm:justify-center [scrollbar-width:none]">
+                <div className="mt-2 -mx-5 px-5 pt-2.5 pb-2.5 flex gap-2.5 overflow-x-auto overflow-y-visible pointer-events-auto justify-start sm:justify-center [scrollbar-width:none]">
                   {DECK_IDS.map((id) => (
                     <motion.button
                       key={id}
@@ -613,9 +613,9 @@ const App = () => {
                       onClick={() => setDeckId(id)}
                       aria-label={DECKS[id].name}
                       aria-pressed={deckId === id}
-                      className={`shrink-0 rounded-lg overflow-hidden transition-all duration-200 ${deckId === id ? 'ring-2 ring-red-500 shadow-[0_0_16px_rgba(239,68,68,.6)] opacity-100 -translate-y-1' : 'opacity-50 hover:opacity-80'}`}
+                      className={`shrink-0 rounded-lg transition-all duration-200 ${deckId === id ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#0a0a0a] shadow-[0_0_16px_rgba(239,68,68,.55)] opacity-100 -translate-y-1' : 'opacity-50 hover:opacity-80'}`}
                     >
-                      <img src={deckImages[id]} alt="" className="w-11 h-[3.85rem] object-cover" />
+                      <img src={deckImages[id]} alt="" className="w-11 h-[3.85rem] object-cover rounded-lg block" />
                     </motion.button>
                   ))}
                 </div>

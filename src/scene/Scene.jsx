@@ -212,6 +212,8 @@ const ActiveCard = ({ data, verdict, exit, delay, view, drag, onGone }) => {
 const Showcase = ({ active, deckId, view }) => {
   const g = useRef();
   const st = useRef({ spin: 0, vis: 0, deck: deckId });
+  const from = useRef(new THREE.Vector3());
+  const to = useRef(new THREE.Vector3());
   useFrame((state, dt) => {
     const s = st.current;
     if (s.deck !== deckId) {
@@ -219,20 +221,35 @@ const Showcase = ({ active, deckId, view }) => {
       s.spin = Math.PI * 2; // gira una vuelta completa al cambiar de mazo
     }
     easing.damp(s, 'spin', 0, 0.3, dt);
-    easing.damp(s, 'vis', active ? 1 : 0, 0.3, dt);
+    easing.damp(s, 'vis', active ? 1 : 0, active ? 0.3 : 0.45, dt);
     const t = state.clock.elapsedTime;
     const obj = g.current;
-    obj.visible = s.vis > 0.01;
+    obj.visible = s.vis > 0.003;
+    if (!obj.visible) return;
+
     // en pantallas más bajas (menos alargadas) la carta se achica para no tocar el título
     const frac = view.height / view.width > 1.9 ? 0.4 : 0.33;
     const fit = Math.min((view.height * frac) / CARD_H, (view.width * 0.62) / CARD_W, 1);
-    obj.scale.setScalar(Math.max(0.0001, fit * (0.6 + 0.4 * s.vis) * (1 - Math.sin(s.spin / 2) * 0.12)));
-    obj.position.set(0, view.height * (frac > 0.35 ? 0.075 : 0.055) + Math.sin(t * 1.1) * 0.05 - (1 - s.vis) * 0.6, 0.6);
+
+    // Transición vitrina <-> aro: la carta viaja hasta el frente del aro, se achica al
+    // tamaño de sus cartas y se desvanece mientras el aro aparece (y al revés al volver).
+    const e = easeInOut(s.vis);
+    from.current.set(0, view.height * 0.14, -1.2 + Math.min(3.4, view.width * 0.5 + 1.2));
+    to.current.set(0, view.height * (frac > 0.35 ? 0.075 : 0.055) + Math.sin(t * 1.1) * 0.05, 0.6);
+    obj.position.lerpVectors(from.current, to.current, e);
+    obj.scale.setScalar(THREE.MathUtils.lerp(0.3, fit, e) * (1 - Math.sin(s.spin / 2) * 0.12));
     obj.rotation.set(
-      -state.pointer.y * 0.16 + Math.sin(t * 0.6) * 0.04,
-      s.spin + state.pointer.x * 0.32 + Math.sin(t * 0.45) * 0.09,
-      Math.sin(t * 0.5) * 0.02,
+      (-state.pointer.y * 0.16 + Math.sin(t * 0.6) * 0.04) * e + 0.38 * (1 - e),
+      s.spin + (state.pointer.x * 0.32 + Math.sin(t * 0.45) * 0.09) * e,
+      Math.sin(t * 0.5) * 0.02 * e,
     );
+    // sólida durante el viaje; se desvanece solo al final, cuando ya tiene el tamaño de las cartas del aro
+    const o = Math.min(1, s.vis / 0.18);
+    obj.traverse((m) => {
+      if (!m.material) return;
+      // el canto luminoso (material con emisión) se apaga antes que las caras, para que no se transparente
+      m.material.opacity = m.material.emissive ? Math.pow(o, 6) : o;
+    });
   });
   return (
     <group ref={g} visible={false}>
