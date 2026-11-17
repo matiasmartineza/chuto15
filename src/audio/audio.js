@@ -71,9 +71,10 @@ function ensure() {
   comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -14;
   comp.ratio.value = 3;
+  comp.attack.value = 0.003;
   master = ctx.createGain();
   const makeup = ctx.createGain();
-  makeup.gain.value = 1.8; // ganancia de compensación tras el compresor
+  makeup.gain.value = 1.5; // ganancia de compensación tras el compresor
   master.connect(comp).connect(makeup).connect(ctx.destination);
   musicBus = ctx.createGain();
   sfxBus = ctx.createGain();
