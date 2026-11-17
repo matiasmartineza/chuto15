@@ -30,13 +30,15 @@ const EXITS = {
 };
 
 // ---------- Carta física ----------
+// Grosor del canto luminoso que asoma alrededor de la carta
+const RIM = 0.012;
 // flipBack: gira el reverso 180° para que se lea derecho cuando la carta está tumbada
 const CardMesh = ({ faceTexture, accent = '#ef4444', glow = 1.6, flipBack = false }) => {
   const back = getBackTexture();
   const edge = useMemo(() => new THREE.Color(accent).multiplyScalar(glow), [accent, glow]);
   return (
     <group>
-      <RoundedBox args={[CARD_W - 0.01, CARD_H - 0.01, 0.03]} radius={CARD_R} smoothness={4}>
+      <RoundedBox args={[CARD_W + RIM * 2, CARD_H + RIM * 2, 0.03]} radius={CARD_R + RIM} smoothness={10}>
         <meshStandardMaterial color="#0b0b0d" emissive={edge} emissiveIntensity={1} toneMapped={false} transparent />
       </RoundedBox>
       <mesh position={[0, 0, 0.017]}>
@@ -268,7 +270,7 @@ const World = ({ mode, card, exitType }) => {
         />
       </mesh>
 
-      <EffectComposer disableNormalPass multisampling={0}>
+      <EffectComposer disableNormalPass multisampling={4}>
         <Bloom mipmapBlur luminanceThreshold={0.95} intensity={1.1} radius={0.75} />
         <Vignette eskil={false} offset={0.25} darkness={0.85} />
       </EffectComposer>
