@@ -209,7 +209,7 @@ const ActiveCard = ({ data, verdict, exit, delay, view, drag, onGone }) => {
 
 // ---------- Anillo de cartas (inicio y ganador) ----------
 // ---------- Vitrina: el reverso del mazo elegido, grande y flotando ----------
-const Showcase = ({ active, deckId, view }) => {
+const Showcase = ({ active, deckId, view, box }) => {
   const g = useRef();
   const st = useRef({ spin: 0, vis: 0, deck: deckId });
   const from = useRef(new THREE.Vector3());
@@ -228,14 +228,20 @@ const Showcase = ({ active, deckId, view }) => {
     if (!obj.visible) return;
 
     // en pantallas más bajas (menos alargadas) la carta se achica para no tocar el título
-    const frac = view.height / view.width > 1.9 ? 0.4 : 0.33;
+    // La carta ocupa el espacio libre que deja la interfaz (medido en píxeles por la app)
+    let frac = view.height / view.width > 1.9 ? 0.4 : 0.33;
+    let centerY = view.height * (frac > 0.35 ? 0.075 : 0.055);
+    if (box && box.vh) {
+      frac = Math.max(0.12, ((box.bottom - box.top) / box.vh) * 0.84);
+      centerY = (0.5 - (box.top + box.bottom) / 2 / box.vh) * view.height;
+    }
     const fit = Math.min((view.height * frac) / CARD_H, (view.width * 0.62) / CARD_W, 1);
 
     // Transición vitrina <-> aro: la carta viaja hasta el frente del aro, se achica al
     // tamaño de sus cartas y se desvanece mientras el aro aparece (y al revés al volver).
     const e = easeInOut(s.vis);
     from.current.set(0, view.height * 0.14, -1.2 + Math.min(3.4, view.width * 0.5 + 1.2));
-    to.current.set(0, view.height * (frac > 0.35 ? 0.075 : 0.055) + Math.sin(t * 1.1) * 0.05, 0.6);
+    to.current.set(0, centerY + Math.sin(t * 1.1) * 0.04, 0);
     obj.position.lerpVectors(from.current, to.current, e);
     obj.scale.setScalar(THREE.MathUtils.lerp(0.3, fit, e) * (1 - Math.sin(s.spin / 2) * 0.12));
     obj.rotation.set(
@@ -314,7 +320,7 @@ const useCardView = () => {
   return { width: v.width, height: v.height, scale, y: v.height * 0.035 };
 };
 
-const World = ({ mode, deckId, card, verdict, exitType, drag }) => {
+const World = ({ mode, deckId, card, verdict, exitType, drag, showcaseBox }) => {
   const view = useCardView();
   const [cards, setCards] = useState([]);
   const [deckUp, setDeckUp] = useState(false);
@@ -351,7 +357,7 @@ const World = ({ mode, deckId, card, verdict, exitType, drag }) => {
 
       <Deck visible={mode === 'playing'} raised={deckUp} deckId={deckId} />
       <CardRing mode={mode} view={view} deckId={deckId} />
-      <Showcase active={mode === 'showcase'} deckId={deckId} view={view} />
+      <Showcase active={mode === 'showcase'} deckId={deckId} view={view} box={showcaseBox} />
       {cards.map((c) => (
         <ActiveCard
           key={c.key}
@@ -393,14 +399,14 @@ const World = ({ mode, deckId, card, verdict, exitType, drag }) => {
   );
 };
 
-const Scene = ({ mode, deckId = 'chuto15', card, verdict, exitType, drag }) => (
+const Scene = ({ mode, deckId = 'chuto15', card, verdict, exitType, drag, showcaseBox }) => (
   <Canvas
     className="!fixed inset-0"
     dpr={[1, 2]}
     gl={{ antialias: true, powerPreference: 'high-performance' }}
     camera={{ position: [0, 0.4, 8], fov: 38 }}
   >
-    <World mode={mode} deckId={deckId} card={card} verdict={verdict} exitType={exitType} drag={drag} />
+    <World mode={mode} deckId={deckId} card={card} verdict={verdict} exitType={exitType} drag={drag} showcaseBox={showcaseBox} />
   </Canvas>
 );
 
