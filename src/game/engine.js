@@ -72,9 +72,13 @@ const draw = (state, playerIdx) => {
   };
 };
 
-export const createLobby = (deckId, names = []) => ({
+export const TARGETS = [200, 400, 600];
+export const targetOf = (state) => (state && state.target) || WIN_SCORE;
+
+export const createLobby = (deckId, names = [], target = WIN_SCORE) => ({
   phase: 'lobby',
   deckId,
+  target,
   players: names.map((name) => ({ name, score: 0, sips: 0 })),
 });
 
@@ -82,6 +86,7 @@ export const startGame = (lobby) => {
   const base = {
     phase: 'playing',
     deckId: lobby.deckId,
+    target: targetOf(lobby),
     players: lobby.players.map((p) => ({ name: p.name, score: 0, sips: 0 })),
     weights: DECKS[lobby.deckId].challenges.map(() => 1),
     cardKey: 0,
@@ -126,7 +131,7 @@ const sipsRow = (p, amount) => ({
 });
 
 const resolve = (state, players, kind, label, title, rows) => {
-  const leaders = players.filter((p) => p.score >= WIN_SCORE).sort((a, b) => b.score - a.score);
+  const leaders = players.filter((p) => p.score >= targetOf(state)).sort((a, b) => b.score - a.score);
   return {
     ...state,
     players,
@@ -148,7 +153,26 @@ const resolve = (state, players, kind, label, title, rows) => {
 };
 
 export const reduce = (state, action) => {
-  if (action.type === 'restart') return createLobby(state.deckId, state.players.map((p) => p.name));
+  if (action.type === 'restart') return createLobby(state.deckId, state.players.map((p) => p.name), targetOf(state));
+  if (action.type === 'setTarget') {
+    return TARGETS.includes(action.target) && state.phase === 'lobby' ? { ...state, target: action.target } : state;
+  }
+  // Partida local: sumar o quitar jugadores a mitad de partida
+  if (action.type === 'addPlayer') {
+    const name = String(action.name || '').trim().slice(0, 16);
+    if (!name || state.phase !== 'playing') return state;
+    if (state.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return state;
+    if (state.players.length >= (DECKS[state.deckId].maxPlayers || 12)) return state;
+    return { ...state, players: [...state.players, { name, score: 0, sips: 0 }] };
+  }
+  if (action.type === 'removePlayer') {
+    const idx = state.players.findIndex((p) => p.name === action.name);
+    if (idx < 0 || state.phase !== 'playing') return state;
+    if (state.players.length <= (DECKS[state.deckId].minPlayers || 2)) return state;
+    if (idx === state.current || idx === state.partner || state.verdict) return state; // en juego ahora mismo
+    const fix = (i) => (i == null ? i : i > idx ? i - 1 : i);
+    return { ...state, players: state.players.filter((_, i) => i !== idx), current: fix(state.current), partner: fix(state.partner) };
+  }
   if (state.phase !== 'playing') return state;
 
   const c = currentChallenge(state);

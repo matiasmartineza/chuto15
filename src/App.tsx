@@ -7,12 +7,13 @@ import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import QRCode from 'qrcode';
 import { DECKS, DECK_IDS, METERS, playerLimits } from './game/decks.js';
 import {
-  WIN_SCORE, canAct, reduce, createLobby, startGame, cardView, currentChallenge, getStakes,
+  WIN_SCORE, TARGETS, targetOf, canAct, reduce, createLobby, startGame, cardView, currentChallenge, getStakes,
   isDrinkChallenge, plainChallengeText, isTrivia, isChupistica,
 } from './game/engine.js';
 import { hostRoom, joinRoom, normalizeCode } from './net/room.js';
 import { getBackImageURL } from './scene/cardArt.js';
 import { getClientId, saveSession, loadSession, clearSession } from './game/session.js';
+import { useRegisterSW } from 'virtual:pwa-register/react';
 
 // ---------- Interfaz ----------
 const spring = { type: 'spring', stiffness: 380, damping: 30 };
@@ -82,8 +83,35 @@ const IconBtn = ({ children, ...rest }) => (
   </motion.button>
 );
 
-const ScoreSheet = ({ open, onClose, players }) => {
+// Selector de meta (200 / 400 / 600 pts)
+const TargetPicker = ({ value, onChange, disabled }) => (
+  <div className="flex items-center justify-between gap-3">
+    <span className="text-[11px] uppercase tracking-[0.3em] text-neutral-500">Meta</span>
+    <div className="flex gap-1 p-1 rounded-full bg-white/[0.04] border border-white/10">
+      {TARGETS.map((t) => (
+        <button
+          key={t}
+          disabled={disabled}
+          onClick={() => onChange(t)}
+          className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${value === t ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'} disabled:hover:text-neutral-400`}
+        >
+          {t} pts
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+// editable: en partida local se pueden sumar o quitar jugadores (locked = los que están en juego ahora)
+const ScoreSheet = ({ open, onClose, players, target = WIN_SCORE, editable = false, locked = [], onAdd, onRemove, maxPlayers = 12, minPlayers = 2 }) => {
   const sorted = [...players].sort((a, b) => b.score - a.score);
+  const [newName, setNewName] = useState('');
+  const add = () => {
+    const n = newName.trim();
+    if (!n || players.some((p) => p.name.toLowerCase() === n.toLowerCase())) return;
+    onAdd(n);
+    setNewName('');
+  };
   return (
     <AnimatePresence>
       {open && (
@@ -114,20 +142,37 @@ const ScoreSheet = ({ open, onClose, players }) => {
                     <span className="flex items-baseline gap-4 tabular-nums">
                       <span className="text-xs text-red-400 flex items-center gap-1"><Wine size={12} /> {p.sips}</span>
                       <span className="font-bold w-14 text-right">{p.score}</span>
+                      {editable && (
+                        <button
+                          onClick={() => onRemove(p.name)}
+                          disabled={locked.includes(p.name) || players.length <= minPlayers}
+                          aria-label={`Quitar a ${p.name}`}
+                          className="self-center w-6 h-6 rounded-full flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 disabled:opacity-20"
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
                     </span>
                   </div>
                   <div className="h-[3px] rounded-full bg-white/[0.06] overflow-hidden ml-7">
                     <motion.div
                       className="h-full rounded-full bg-gradient-to-r from-red-500 to-purple-600"
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (p.score / WIN_SCORE) * 100)}%` }}
+                      animate={{ width: `${Math.min(100, (p.score / target) * 100)}%` }}
                       transition={{ type: 'spring', stiffness: 80, damping: 18, delay: 0.1 + 0.05 * i }}
                     />
                   </div>
                 </motion.div>
               ))}
             </div>
-            <p className="text-center text-xs text-neutral-600 mt-6">Gana el primero en llegar a {WIN_SCORE} pts</p>
+            {editable && players.length < maxPlayers && (
+              <div className="flex gap-2 mt-5">
+                <TextInput value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Sumar a alguien que llegó" />
+                <IconBtn onClick={add} aria-label="Sumar jugador"><Plus size={18} /></IconBtn>
+              </div>
+            )}
+            {editable && <p className="text-[11px] text-neutral-600 mt-2">No se puede quitar a quien está jugando la carta actual.</p>}
+            <p className="text-center text-xs text-neutral-600 mt-5">Gana el primero en llegar a {target} pts</p>
           </motion.div>
         </motion.div>
       )}
@@ -305,6 +350,9 @@ const Option = ({ active, onClick, children, className = '' }) => (
 
 const App = () => {
   const [screen, setScreen] = useState('consent');
+  const [target, setTarget] = useState(WIN_SCORE);
+  // Nueva versión publicada: se avisa en vez de actualizar en silencio
+  const { needRefresh: [needRefresh, setNeedRefresh], updateServiceWorker } = useRegisterSW({ immediate: true });
   // false si no hay WebGL o si el 3D falla: el juego sigue con cartas simples
   const [glOk, setGlOk] = useState(hasWebGL);
   const [deckId, setDeckId] = useState('chuto15');
@@ -392,7 +440,7 @@ const App = () => {
   const hostAct = (actor, action) => {
     const g = gameRef.current;
     if (!g) return;
-    const hostOnly = action.type === 'restart' || action.type === 'skip';
+    const hostOnly = action.type === 'restart' || action.type === 'skip' || action.type === 'setTarget';
     if (hostOnly && actor !== netRef.current.myName) return;
     if (!hostOnly && !canAct(g, action, actor)) return;
     commit(reduce(g, action));
@@ -426,7 +474,7 @@ const App = () => {
     const lim = playerLimits(deckId);
     if (localNames.length < lim.min || localNames.length > lim.max) return;
     setMode('local');
-    commit(startGame(createLobby(deckId, localNames)));
+    commit(startGame(createLobby(deckId, localNames, target)));
     setScreen('game');
   };
 
@@ -452,7 +500,7 @@ const App = () => {
     setMode('online');
     setNet({ role: 'host', myName: name, code: restore ? restore.code : null, status: 'connecting', error: null });
     setConnected([name]);
-    commit(restore ? restore.game : createLobby(deckId, [name]));
+    commit(restore ? restore.game : createLobby(deckId, [name], target));
     hostClients.current = {};
     hostRef.current = hostRoom({
       onReady: (code) => setNet((n) => n && { ...n, code, status: 'ready' }),
@@ -948,6 +996,7 @@ const App = () => {
                     </motion.button>
                   </div>
                   {nameError && <p className="text-red-400 text-xs mt-2 ml-2">{nameError}</p>}
+                  <div className="mt-4 pt-4 border-t border-white/5"><TargetPicker value={target} onChange={setTarget} /></div>
                   <div className="flex flex-wrap gap-2 mt-4 min-h-[2.25rem]">
                     <AnimatePresence initial={false}>
                       {localNames.map((n, i) => (
@@ -1076,6 +1125,9 @@ const App = () => {
                             </motion.span>
                           ))}
                         </AnimatePresence>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-white/5">
+                        <TargetPicker value={targetOf(game)} disabled={net.role !== 'host'} onChange={(t) => act({ type: 'setTarget', target: t })} />
                       </div>
                     </Glass>
                     <motion.div variants={item} className="mt-4">
@@ -1341,7 +1393,35 @@ const App = () => {
           </AnimatePresence>
         </div>
 
-        <ScoreSheet open={scoresOpen} onClose={() => setScoresOpen(false)} players={game ? game.players : []} />
+        <ScoreSheet
+          open={scoresOpen}
+          onClose={() => setScoresOpen(false)}
+          players={game ? game.players : []}
+          target={targetOf(game)}
+          editable={mode === 'local' && playing}
+          locked={playing ? [curPlayer && curPlayer.name, partner && partner.name].filter(Boolean) : []}
+          onAdd={(name) => act({ type: 'addPlayer', name })}
+          onRemove={(name) => act({ type: 'removePlayer', name })}
+          minPlayers={limits.min}
+          maxPlayers={limits.max}
+        />
+
+        {/* Aviso de nueva versión (fuera de una partida en curso) */}
+        <AnimatePresence>
+          {needRefresh && !(screen === 'game' && phase === 'playing') && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 30 }}
+              className="fixed bottom-[max(env(safe-area-inset-bottom),1rem)] inset-x-0 z-40 flex justify-center px-5"
+              role="status"
+            >
+              <div className="flex items-center gap-3 rounded-full bg-[#111014]/95 border border-white/15 pl-5 pr-1.5 py-1.5 shadow-2xl text-sm">
+                <span>Hay una versión nueva</span>
+                <button onClick={() => updateServiceWorker(true)} className="rounded-full bg-white text-black font-semibold px-4 py-2">Actualizar</button>
+                <button onClick={() => setNeedRefresh(false)} aria-label="Ahora no" className="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-white"><X size={15} /></button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Aviso de reconexión */}
         <AnimatePresence>
