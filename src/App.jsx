@@ -19,6 +19,7 @@ import {
 } from './ui/components.jsx';
 import { ScoreSheet, DeckInfoSheet, ConfirmSheet } from './ui/sheets.jsx';
 import SceneBoundary from './ui/SceneBoundary.jsx';
+import { useInstallPrompt, InstallBanner } from './ui/install.jsx';
 
 const hasWebGL = (() => {
   try {
@@ -44,18 +45,6 @@ const initialJoinCode = (() => {
     return '';
   }
 })();
-
-// Botón "Instalar app" (Android/Chrome); en iPhone se explica cómo hacerlo
-const useInstallPrompt = () => {
-  const [prompt, setPrompt] = useState(null);
-  useEffect(() => {
-    const onPrompt = (e) => { e.preventDefault(); setPrompt(e); };
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
-  }, []);
-  const standalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
-  return { prompt, standalone, clear: () => setPrompt(null) };
-};
 
 const App = () => {
   const [screen, setScreen] = useState('consent');
@@ -572,6 +561,7 @@ const App = () => {
             {screen === 'consent' && (
               <motion.div key="consent" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <motion.div variants={item} className="flex justify-center pt-6"><Logo /></motion.div>
+                <InstallBanner install={install} />
                 <div className="flex-1" />
                 <Glass className="p-6 pointer-events-auto">
                   <div className="flex items-center gap-3 mb-3">
@@ -602,7 +592,7 @@ const App = () => {
               <motion.div key="deck" variants={fade} initial="initial" animate="animate" exit="exit" className="flex-1 min-h-0 flex flex-col">
                 <Header
                   right={install.prompt && !install.standalone ? (
-                    <IconBtn aria-label="Instalar app" onClick={async () => { install.prompt.prompt(); install.clear(); }}><Download size={17} /></IconBtn>
+                    <IconBtn aria-label="Instalar app" onClick={() => install.install()}><Download size={17} /></IconBtn>
                   ) : null}
                 />
                 <Title kicker="Paso 1">Elige un mazo</Title>
