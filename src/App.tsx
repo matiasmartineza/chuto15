@@ -8,7 +8,7 @@ import QRCode from 'qrcode';
 import { DECKS, DECK_IDS, METERS, playerLimits } from './game/decks.js';
 import {
   WIN_SCORE, canAct, reduce, createLobby, startGame, cardView, currentChallenge, getStakes,
-  isDrinkChallenge, plainChallengeText, isTrivia,
+  isDrinkChallenge, plainChallengeText, isTrivia, isChupistica,
 } from './game/engine.js';
 import { hostRoom, joinRoom, normalizeCode } from './net/room.js';
 import { getBackImageURL } from './scene/cardArt.js';
@@ -691,6 +691,7 @@ const App = () => {
   const challenge = playing ? currentChallenge(game) : null;
   const drinkType = isDrinkChallenge(challenge);
   const trivia = playing && isTrivia(game);
+  const chupi = playing && isChupistica(game);
   // El anfitrión puede saltar el turno de alguien que se desconectó
   const canSkip = playing && mode === 'online' && net && net.role === 'host' && curPlayer && curPlayer.name !== net.myName && !connected.includes(curPlayer.name);
   const limits = playerLimits(game ? game.deckId : deckId);
@@ -1103,6 +1104,11 @@ const App = () => {
                         {toast.text}
                       </motion.p>
                     )}
+                    {!toast && chupi && !verdict && (
+                      <motion.p key="chupi-rule" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute text-xs text-neutral-400 text-center whitespace-nowrap">
+                        En ronda desde {curPlayer.name} · quien falla o repite, toma
+                      </motion.p>
+                    )}
                   </AnimatePresence>
                 </div>
 
@@ -1171,6 +1177,25 @@ const App = () => {
                             )}
                           </div>
                         )}
+                      </motion.div>
+                    ) : myTurn && chupi ? (
+                      <motion.div key="chupi" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }} className="space-y-2.5">
+                        <p className="text-center text-[11px] uppercase tracking-[0.3em] text-neutral-500">¿Quién perdió la ronda?</p>
+                        <div className="flex flex-wrap justify-center gap-2 max-h-[5.5rem] overflow-y-auto">
+                          {game.players.map((p) => (
+                            <motion.button
+                              key={p.name}
+                              whileTap={{ scale: 0.94 }}
+                              onClick={() => act({ type: 'loser', name: p.name })}
+                              className={`rounded-full px-4 py-2.5 text-sm font-semibold border transition-colors ${p.name === curPlayer.name ? 'bg-white text-black border-white' : 'bg-white/[0.06] border-white/15 text-white hover:bg-white/[0.12]'}`}
+                            >
+                              {p.name === curPlayer.name ? `${p.name} (yo)` : p.name}
+                            </motion.button>
+                          ))}
+                        </div>
+                        <Ghost onClick={() => act({ type: 'negotiate' })} disabled={game.negotiated} className="w-full py-2.5">
+                          <Shuffle size={15} className="text-purple-400" /> Otra categoría (apuesta doble)
+                        </Ghost>
                       </motion.div>
                     ) : myTurn && trivia ? (
                       <motion.div key={game.revealed ? 'trivia-answer' : 'trivia-ask'} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }} className="space-y-2.5">

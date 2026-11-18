@@ -41,6 +41,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 export const challengesOf = (state) => DECKS[state.deckId].challenges;
 export const isTrivia = (state) => !!state && DECKS[state.deckId].kind === 'trivia';
+export const isChupistica = (state) => !!state && DECKS[state.deckId].kind === 'chupistica';
 const levelLabel = (deckId, intensity) => (DECKS[deckId].levelLabels || LEVEL_LABELS)[intensity];
 export const currentChallenge = (state) =>
   state && state.challengeIdx != null ? challengesOf(state)[state.challengeIdx] : null;
@@ -107,6 +108,7 @@ export const canAct = (state, action, actorName) => {
     case 'fail':
     case 'negotiate':
     case 'reveal':
+    case 'loser':
       return cur.name === actorName && !state.verdict;
     case 'continue':
       return cur.name === actorName && !!state.verdict;
@@ -156,6 +158,21 @@ export const reduce = (state, action) => {
   switch (action.type) {
     case 'reveal':
       return state.verdict ? state : { ...state, revealed: true };
+    case 'loser': {
+      // Cultura chupística: quien perdió la ronda bebe; si no fue el que partió, este gana puntos
+      if (state.verdict) return state;
+      const li = state.players.findIndex((p) => p.name === action.name);
+      if (li < 0) return state;
+      const players = state.players.map((p, i) => {
+        if (i === li) return { ...p, sips: p.sips + sips };
+        if (i === cur && li !== cur) return { ...p, score: p.score + points };
+        return p;
+      });
+      const rows = [];
+      if (li !== cur) rows.push(pointsRow(players[cur], points));
+      rows.push(sipsRow(players[li], sips));
+      return resolve(state, players, li === cur ? 'fail' : 'done', 'Fin de la ronda', `${players[li].name} se quedó en blanco`, rows);
+    }
     case 'done': {
       if (state.verdict) return state;
       const players = state.players.map((p, i) => {

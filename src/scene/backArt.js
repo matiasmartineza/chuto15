@@ -1197,6 +1197,164 @@ function drawKawaii() {
   return c;
 }
 
+
+// =====================================================================
+// CULTURA CHUPÍSTICA — Cómic pop-art: rayos, semitono, schop espumoso y globo de diálogo
+// =====================================================================
+function drawChupistica() {
+  const [c, ctx] = makeCanvas();
+  const cx = W / 2;
+  const cy = H / 2 + 60;
+  const ink = '#1a0f06';
+
+  // Rayos de sol alternados
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(cx, cy);
+  for (let i = 0; i < 24; i++) {
+    ctx.rotate(TAU / 24);
+    if (i % 2) continue;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-90, -1100);
+    ctx.lineTo(90, -1100);
+    ctx.closePath();
+    ctx.fillStyle = '#f97316';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Trama de semitono (puntos que crecen hacia los bordes)
+  ctx.fillStyle = 'rgba(26,15,6,.16)';
+  for (let y = 10; y < H; y += 16) {
+    for (let x = ((y / 16) % 2) * 8; x < W; x += 16) {
+      const d = Math.hypot(x - cx, y - cy) / 620;
+      const r = Math.max(0, Math.min(5.5, d * 6.5 - 1.2));
+      if (r > 0.3) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, TAU);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Schop (jarra de cerveza)
+  const gw = 250;
+  const gh = 330;
+  const gx = cx - gw / 2 - 30;
+  const gy = cy - gh / 2 + 40;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  // asa
+  ctx.lineWidth = 34;
+  ctx.strokeStyle = ink;
+  ctx.beginPath();
+  ctx.moveTo(gx + gw - 6, gy + 70);
+  ctx.bezierCurveTo(gx + gw + 120, gy + 70, gx + gw + 120, gy + gh - 90, gx + gw - 6, gy + gh - 90);
+  ctx.stroke();
+  ctx.lineWidth = 18;
+  ctx.strokeStyle = '#fde68a';
+  ctx.stroke();
+  // vaso
+  roundRect(ctx, gx, gy, gw, gh, 26);
+  const beer = ctx.createLinearGradient(gx, 0, gx + gw, 0);
+  beer.addColorStop(0, '#f59e0b');
+  beer.addColorStop(0.5, '#fbbf24');
+  beer.addColorStop(1, '#d97706');
+  ctx.fillStyle = beer;
+  ctx.fill();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = ink;
+  ctx.stroke();
+  // burbujas
+  const r = rng(12);
+  ctx.fillStyle = 'rgba(255,255,255,.75)';
+  for (let i = 0; i < 26; i++) {
+    ctx.beginPath();
+    ctx.arc(gx + 26 + r() * (gw - 52), gy + 70 + r() * (gh - 100), 3 + r() * 7, 0, TAU);
+    ctx.fill();
+  }
+  // brillo del vidrio
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  roundRect(ctx, gx + 22, gy + 60, 22, gh - 90, 11);
+  ctx.fill();
+  // espuma: nube de círculos (primero el contorno de todos, luego el relleno, así queda una sola silueta)
+  const foamY = gy + 10;
+  const puffs = [
+    [gx + 6, foamY + 14, 40], [gx + 58, foamY - 18, 50], [gx + 128, foamY - 30, 56], [gx + 196, foamY - 14, 48],
+    [gx + gw + 2, foamY + 12, 38], [gx + 40, foamY + 34, 36], [gx + 110, foamY + 30, 40], [gx + 180, foamY + 32, 38],
+  ];
+  ctx.fillStyle = ink;
+  puffs.forEach(([px, py, pr]) => { ctx.beginPath(); ctx.arc(px, py, pr + 9, 0, TAU); ctx.fill(); });
+  ctx.fillStyle = '#fffbeb';
+  puffs.forEach(([px, py, pr]) => { ctx.beginPath(); ctx.arc(px, py, pr, 0, TAU); ctx.fill(); });
+  ctx.fillStyle = 'rgba(253,230,138,.55)';
+  puffs.slice(5).forEach(([px, py, pr]) => { ctx.beginPath(); ctx.arc(px + 6, py + 10, pr * 0.6, 0, TAU); ctx.fill(); });
+  ctx.strokeStyle = ink;
+  // gota que cae
+  ctx.beginPath();
+  ctx.moveTo(gx + gw - 30, foamY + 52);
+  ctx.quadraticCurveTo(gx + gw - 12, foamY + 100, gx + gw - 30, foamY + 112);
+  ctx.quadraticCurveTo(gx + gw - 48, foamY + 100, gx + gw - 30, foamY + 52);
+  ctx.fillStyle = '#fffbeb';
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.stroke();
+
+  // Globo de diálogo con el nombre
+  const bx = 70;
+  const by = 120;
+  const bw = W - 140;
+  const bh = 170;
+  ctx.beginPath();
+  ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2, bh / 2, 0, 0, TAU);
+  ctx.moveTo(bx + bw * 0.62, by + bh - 10);
+  ctx.lineTo(bx + bw * 0.7, by + bh + 70);
+  ctx.lineTo(bx + bw * 0.5, by + bh - 6);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = ink;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2 - 5, bh / 2 - 5, 0, 0, TAU);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = ink;
+  ctx.font = `italic 900 50px ${SANS}`;
+  ctx.fillText('¡CULTURA', bx + bw / 2, by + bh / 2 - 28);
+  ctx.fillStyle = '#ea580c';
+  ctx.font = `italic 900 56px ${SANS}`;
+  ctx.fillText('CHUPÍSTICA!', bx + bw / 2, by + bh / 2 + 30);
+  ctx.restore();
+
+  // Cinta inferior
+  ctx.save();
+  ctx.translate(cx, H - 128);
+  ctx.rotate(-0.04);
+  roundRect(ctx, -250, -34, 500, 68, 10);
+  ctx.fillStyle = ink;
+  ctx.fill();
+  ctx.fillStyle = '#fde047';
+  ctx.font = `italic 900 28px ${SANS}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  spaced(ctx, 3);
+  ctx.fillText('¡EL QUE PIERDE, TOMA!', 3, 2);
+  ctx.restore();
+
+  // Marco
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = ink;
+  roundRect(ctx, 22, 22, W - 44, H - 44, R - 10);
+  ctx.stroke();
+  return c;
+}
+
 const DRAWERS = {
   chuto15: drawChuto,
   sincensura: drawCensura,
@@ -1204,6 +1362,7 @@ const DRAWERS = {
   primeracita: drawCita,
   trivia: drawTrivia,
   carreteonline: drawOnline,
+  chupistica: drawChupistica,
   kawaiineko: drawKawaii,
 };
 

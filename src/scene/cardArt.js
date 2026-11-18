@@ -33,6 +33,10 @@ export const THEMES = {
     soft: '#5eead4', medium: '#38bdf8', hard: '#818cf8', negotiated: '#facc15',
     face: '#0a1020', ring: ['#22d3ee', '#6366f1'], deck: ['#22d3ee', '#3730a3'],
   },
+  chupistica: {
+    soft: '#fbbf24', medium: '#f97316', hard: '#ef4444', negotiated: '#a3e635',
+    face: '#140d05', ring: ['#fbbf24', '#f97316'], deck: ['#fbbf24', '#c2410c'],
+  },
   carreteonline: {
     soft: '#a5b4fc', medium: '#818cf8', hard: '#c084fc', negotiated: '#facc15',
     face: '#0e0d1c', ring: ['#6366f1', '#22d3ee'], deck: ['#818cf8', '#3730a3'],
