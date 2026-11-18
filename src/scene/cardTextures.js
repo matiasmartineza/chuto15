@@ -12,10 +12,25 @@ function toTexture(canvas) {
   return t;
 }
 
-const backTextures = {};
+// Se guardan solo los últimos reversos usados; los más viejos se liberan de la memoria de video
+const backTextures = new Map();
+const MAX_BACKS = 3;
 export function getBackTexture(deckId = 'chuto15') {
-  if (!backTextures[deckId]) backTextures[deckId] = toTexture(getBackCanvas(deckId));
-  return backTextures[deckId];
+  if (backTextures.has(deckId)) {
+    const t = backTextures.get(deckId);
+    backTextures.delete(deckId);
+    backTextures.set(deckId, t); // marcar como reciente
+    return t;
+  }
+  const t = toTexture(getBackCanvas(deckId));
+  backTextures.set(deckId, t);
+  while (backTextures.size > MAX_BACKS) {
+    const [oldId, oldTex] = backTextures.entries().next().value;
+    if (oldId === deckId) break;
+    backTextures.delete(oldId);
+    oldTex.dispose();
+  }
+  return t;
 }
 
 export const makeFaceTexture = (card) => toTexture(makeFaceCanvas(card));

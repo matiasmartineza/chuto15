@@ -111,6 +111,7 @@ export const canAct = (state, action, actorName) => {
     case 'loser':
       return cur.name === actorName && !state.verdict;
     case 'continue':
+    case 'undo':
       return cur.name === actorName && !!state.verdict;
     default:
       return false;
@@ -129,6 +130,8 @@ const resolve = (state, players, kind, label, title, rows) => {
   return {
     ...state,
     players,
+    // copia del estado antes de resolver, para poder "Corregir" si se tocó el botón equivocado
+    undoState: { ...state, undoState: null },
     verdict: {
       key: state.cardKey,
       kind,
@@ -244,12 +247,14 @@ export const reduce = (state, action) => {
       const nextIdx = (cur + 1) % state.players.length;
       return draw({ ...state, exitType: 'fail', throwDir: null }, nextIdx);
     }
+    case 'undo':
+      return state.verdict && state.undoState ? state.undoState : state;
     case 'continue': {
       if (!state.verdict) return state;
       const exitType = action.exit || state.verdict.kind;
-      if (state.verdict.gameOver) return { ...state, phase: 'winner', exitType, verdict: null, throwDir: action.dir || null };
+      if (state.verdict.gameOver) return { ...state, phase: 'winner', exitType, verdict: null, undoState: null, throwDir: action.dir || null };
       const nextIdx = (cur + 1) % state.players.length;
-      return draw({ ...state, exitType, throwDir: action.dir || null }, nextIdx);
+      return draw({ ...state, exitType, undoState: null, throwDir: action.dir || null }, nextIdx);
     }
     default:
       return state;

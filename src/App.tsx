@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import {
   Wine, Plus, RotateCcw, Trophy, X, Check, Shuffle, ShieldX, Star, ChevronUp, ChevronLeft,
-  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut, Info, Users, MapPin, Clock,
+  Smartphone, Wifi, WifiOff, Loader2, Crown, Download, Eye, Share2, LogOut, Info, Users, MapPin, Clock, Undo2,
 } from 'lucide-react';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import QRCode from 'qrcode';
@@ -222,6 +222,23 @@ const DeckInfoSheet = ({ deckId, image, selected, onClose, onChoose }) => {
   );
 };
 
+// Si la escena 3D falla, se muestra la versión sin 3D en vez de una pantalla negra
+class SceneBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    this.props.onError();
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 const Scene = React.lazy(() => import('./scene/Scene.jsx'));
 
 // El QR y el link de la sala apuntan al mismo sitio donde se está jugando
@@ -288,6 +305,8 @@ const Option = ({ active, onClick, children, className = '' }) => (
 
 const App = () => {
   const [screen, setScreen] = useState('consent');
+  // false si no hay WebGL o si el 3D falla: el juego sigue con cartas simples
+  const [glOk, setGlOk] = useState(hasWebGL);
   const [deckId, setDeckId] = useState('chuto15');
 
   const [localNames, setLocalNames] = useState([]);
@@ -781,10 +800,12 @@ const App = () => {
   return (
     <MotionConfig reducedMotion="user">
       <div className="fixed inset-0 bg-[#0a0a0a] text-white overflow-hidden">
-        {hasWebGL && (
+        {glOk && (
+          <SceneBoundary onError={() => setGlOk(false)}>
           <Suspense fallback={null}>
-            <Scene mode={sceneMode} showcaseBox={showcaseBox} deckId={sceneDeck} card={screen === 'game' && !netError ? card : null} verdict={netError ? null : verdict} exitType={game ? game.exitType : 'done'} drag={drag} />
+            <Scene onLost={() => setGlOk(false)} mode={sceneMode} showcaseBox={showcaseBox} deckId={sceneDeck} card={screen === 'game' && !netError ? card : null} verdict={netError ? null : verdict} exitType={game ? game.exitType : 'done'} drag={drag} />
           </Suspense>
+          </SceneBoundary>
         )}
 
         <div className="relative z-10 h-[100dvh] max-w-md mx-auto flex flex-col px-5 pt-[max(env(safe-area-inset-top),1.25rem)] pb-[max(env(safe-area-inset-bottom),1.25rem)] pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto">
@@ -1123,7 +1144,7 @@ const App = () => {
                       ? `${verdict.title}. ${verdict.rows.map((r) => `${r.name}: ${r.amount}`).join('. ')}.`
                       : `${plainText}. Premio ${stakes.points} puntos, castigo ${stakes.sips} sorbos.`}
                   </p>
-                  {!hasWebGL && (
+                  {!glOk && (
                     <div className="w-full rounded-3xl bg-neutral-900/80 border border-white/10 p-6">
                       {verdict ? (
                         <>
@@ -1155,7 +1176,8 @@ const App = () => {
                     {verdict ? (
                       <motion.div key="next" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 14 }} transition={{ type: 'tween', duration: 0.2 }}>
                         {canDo({ type: 'continue' }) ? (
-                          <button onClick={() => throwCard({ x: 0, y: -1 })} className="w-full h-[7.25rem] flex flex-col items-center justify-center gap-1.5 text-neutral-400"
+                          <>
+                          <button onClick={() => throwCard({ x: 0, y: -1 })} className="w-full h-[5.5rem] flex flex-col items-center justify-center gap-1.5 text-neutral-400"
                             aria-label={verdict.gameOver ? 'Lanzar la carta y ver al ganador' : 'Lanzar la carta y pasar al siguiente turno'}>
                             <span className="flex flex-col items-center -space-y-2.5">
                               {[0, 1, 2].map((i) => (
@@ -1167,6 +1189,12 @@ const App = () => {
                             <span className="text-sm font-semibold text-white">Desliza la carta para lanzarla</span>
                             <span className="text-xs">{verdict.gameOver ? 'y descubre al ganador' : `Sigue ${nextName}`}</span>
                           </button>
+                          <div className="h-[1.75rem] flex justify-center">
+                            <button onClick={() => act({ type: 'undo' })} className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white px-3 rounded-full">
+                              <Undo2 size={13} /> Corregir (me equivoqué de botón)
+                            </button>
+                          </div>
+                          </>
                         ) : (
                           <div className="h-[7.25rem] flex flex-col items-center justify-center gap-2 text-sm text-neutral-400">
                             Esperando que {curPlayer.name} lance la carta…

@@ -127,8 +127,8 @@ function lipsPath(ctx, cx, cy, w) {
 // =====================================================================
 // CHUTO15 — Art déco con rosetón guilloché
 // =====================================================================
-function drawChuto() {
-  const [c, ctx] = makeCanvas();
+function drawChuto(scale = 1.5) {
+  const [c, ctx] = makeCanvas(scale);
   const cx = W / 2;
   const cy = H / 2 + 6;
 
@@ -273,8 +273,8 @@ function drawChuto() {
 // =====================================================================
 // SIN CENSURA — Barroco noir: damasco, volutas doradas, camafeo
 // =====================================================================
-function drawCensura() {
-  const [c, ctx] = makeCanvas();
+function drawCensura(scale = 1.5) {
+  const [c, ctx] = makeCanvas(scale);
   const cx = W / 2;
   const cy = H / 2 - 20;
   const gold = grad(ctx, 0, 0, W, H, goldStops);
@@ -478,8 +478,8 @@ function drawCensura() {
 // =====================================================================
 // ENTRE DOS — Tarot celestial: el sol y la luna en eclipse (VI · Los Enamorados)
 // =====================================================================
-function drawEntreDos() {
-  const [c, ctx] = makeCanvas();
+function drawEntreDos(scale = 1.5) {
+  const [c, ctx] = makeCanvas(scale);
   const cx = W / 2;
   const rose = grad(ctx, 0, 0, W, H, ['#ffd9cc', '#e8a598', '#f6c1b4', '#b76e79', '#f2b8a6']);
   const r = rng(26);
@@ -611,8 +611,8 @@ function drawEntreDos() {
 // =====================================================================
 // PRIMERA CITA — Recortes a lo Matisse y el jarrón de Rubin (dos perfiles)
 // =====================================================================
-function drawCita() {
-  const [c, ctx] = makeCanvas();
+function drawCita(scale = 1.5) {
+  const [c, ctx] = makeCanvas(scale);
   const cx = W / 2;
   const navy = '#1f2a44';
   const terracotta = '#c4532f';
@@ -698,8 +698,8 @@ function drawCita() {
 // =====================================================================
 // SABELOTODO — Astrolabio grabado
 // =====================================================================
-function drawTrivia() {
-  const [c, ctx] = makeCanvas();
+function drawTrivia(scale = 1.5) {
+  const [c, ctx] = makeCanvas(scale);
   const cx = W / 2;
   const cy = H / 2 + 26;
   const gold = grad(ctx, 0, 0, W, H, goldStops);
@@ -880,8 +880,8 @@ function drawTrivia() {
 // =====================================================================
 // CARRETE ONLINE — Líneas de pulso (a lo "Unknown Pleasures")
 // =====================================================================
-function drawOnline() {
-  const [c, ctx] = makeCanvas();
+function drawOnline(scale = 1.5) {
+  const [c, ctx] = makeCanvas(scale);
   const cx = W / 2;
   const bgColor = '#07061a';
   const r = rng(1979);
@@ -976,8 +976,8 @@ function drawOnline() {
 // =====================================================================
 // KAWAII NEKO — Estampa japonesa: seigaiha, ensō, sakura y sello hanko
 // =====================================================================
-function drawKawaii() {
-  const [c, ctx] = makeCanvas();
+function drawKawaii(scale = 1.5) {
+  const [c, ctx] = makeCanvas(scale);
   const cx = W / 2;
   const cy = H / 2 + 20;
   const ink = '#4a3348';
@@ -1201,8 +1201,8 @@ function drawKawaii() {
 // =====================================================================
 // CULTURA CHUPÍSTICA — Cómic pop-art: rayos, semitono, schop espumoso y globo de diálogo
 // =====================================================================
-function drawChupistica() {
-  const [c, ctx] = makeCanvas();
+function drawChupistica(scale = 1.5) {
+  const [c, ctx] = makeCanvas(scale);
   const cx = W / 2;
   const cy = H / 2 + 60;
   const ink = '#1a0f06';
@@ -1366,6 +1366,7 @@ const DRAWERS = {
   kawaiineko: drawKawaii,
 };
 
-export function drawBackArt(deckId) {
-  return (DRAWERS[deckId] || drawChuto)();
+// scale: 1.5 para la textura 3D; un valor chico (p. ej. 0.25) para miniaturas livianas
+export function drawBackArt(deckId, scale = 1.5) {
+  return (DRAWERS[deckId] || drawChuto)(scale);
 }

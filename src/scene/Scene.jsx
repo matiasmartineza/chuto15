@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { MeshReflectorMaterial, RoundedBox, Sparkles } from '@react-three/drei';
+import { MeshReflectorMaterial, RoundedBox, Sparkles, PerformanceMonitor } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { easing } from 'maath';
 import { CARD_W, CARD_H, CARD_R, VERDICT_COLORS, themeOf, getBackTexture, makeFaceTexture, makeVerdictTexture } from './cardTextures.js';
@@ -17,6 +17,10 @@ const DECK_GAP = 0.035;
 const DECK_TOP = DECK_POS.clone().add(
   new THREE.Vector3(0, 0, -DECK_COUNT * DECK_GAP * DECK_SCALE).applyQuaternion(DECK_QUAT),
 );
+
+// Si el teléfono pide "reducir movimiento", se apagan los vaivenes decorativos
+const REDUCED = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SWAY = REDUCED ? 0 : 1;
 
 const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
 const easeInCubic = (x) => x * x * x;
@@ -76,7 +80,7 @@ const Deck = ({ visible, raised, deckId }) => {
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime;
     easing.damp(drop.current, 'current', raised ? 0 : DECK_HIDDEN_DROP, raised ? 0.18 : 0.35, dt);
-    g.current.position.set(DECK_POS.x, DECK_POS.y - drop.current.current + Math.sin(t * 0.8) * 0.05, DECK_POS.z);
+    g.current.position.set(DECK_POS.x, DECK_POS.y - drop.current.current + Math.sin(t * 0.8) * 0.05 * SWAY, DECK_POS.z);
     easing.damp(g.current.scale, 'x', visible ? DECK_SCALE : 0.001, 0.35, dt);
     g.current.scale.y = g.current.scale.z = g.current.scale.x;
   });
@@ -119,7 +123,7 @@ const ActiveCard = ({ data, verdict, exit, delay, view, drag, onGone }) => {
     // Entrada: del mazo al centro, dándose vuelta
     const p = clamp01((t - st.start) / 1.0);
     const e = easeInOut(p);
-    const centerY = view.y + Math.sin(t * 1.1) * 0.04 * e;
+    const centerY = view.y + Math.sin(t * 1.1) * 0.04 * e * SWAY;
     basePos.current.lerpVectors(DECK_TOP, tmpV.set(0, centerY, 0), e);
     basePos.current.z += Math.sin(Math.PI * e) * 1.6;
     basePos.current.y += Math.sin(Math.PI * e) * 0.4;
@@ -131,8 +135,8 @@ const ActiveCard = ({ data, verdict, exit, delay, view, drag, onGone }) => {
     easing.damp(flip.current, 'current', verdict ? Math.PI : 0, 0.28, dt);
     const f = flip.current.current;
     tmpE.set(
-      -state.pointer.y * 0.18 + Math.sin(t * 0.7) * 0.03,
-      state.pointer.x * 0.25 + Math.sin(t * 0.5) * 0.04 + f,
+      -state.pointer.y * 0.18 + Math.sin(t * 0.7) * 0.03 * SWAY,
+      state.pointer.x * 0.25 + Math.sin(t * 0.5) * 0.04 * SWAY + f,
       wob,
     );
     tmpQ.setFromEuler(tmpE);
@@ -241,13 +245,13 @@ const Showcase = ({ active, deckId, view, box }) => {
     // tamaño de sus cartas y se desvanece mientras el aro aparece (y al revés al volver).
     const e = easeInOut(s.vis);
     from.current.set(0, view.height * 0.14, -1.2 + Math.min(3.4, view.width * 0.5 + 1.2));
-    to.current.set(0, centerY + Math.sin(t * 1.1) * 0.04, 0);
+    to.current.set(0, centerY + Math.sin(t * 1.1) * 0.04 * SWAY, 0);
     obj.position.lerpVectors(from.current, to.current, e);
     obj.scale.setScalar(THREE.MathUtils.lerp(0.3, fit, e) * (1 - Math.sin(s.spin / 2) * 0.12));
     obj.rotation.set(
-      (-state.pointer.y * 0.16 + Math.sin(t * 0.6) * 0.04) * e + 0.38 * (1 - e),
-      s.spin + (state.pointer.x * 0.32 + Math.sin(t * 0.45) * 0.09) * e,
-      Math.sin(t * 0.5) * 0.02 * e,
+      (-state.pointer.y * 0.16 + Math.sin(t * 0.6) * 0.04 * SWAY) * e + 0.38 * (1 - e),
+      s.spin + (state.pointer.x * 0.32 + Math.sin(t * 0.45) * 0.09 * SWAY) * e,
+      Math.sin(t * 0.5) * 0.02 * e * SWAY,
     );
     // sólida durante el viaje; se desvanece solo al final, cuando ya tiene el tamaño de las cartas del aro
     const o = Math.min(1, s.vis / 0.18);
@@ -273,7 +277,7 @@ const CardRing = ({ mode, view, deckId }) => {
     const winner = mode === 'winner';
     easing.damp(g.current.scale, 'x', show ? 1 : 0.001, 0.4, dt);
     g.current.scale.y = g.current.scale.z = g.current.scale.x;
-    easing.damp(speed, 'current', winner ? 0.55 : 0.15, 0.6, dt);
+    easing.damp(speed, 'current', (winner ? 0.55 : 0.15) * (REDUCED ? 0.15 : 1), 0.6, dt);
     g.current.rotation.y += dt * speed.current;
     easing.damp(g.current.position, 'y', winner ? view.y + 0.2 : view.height * 0.14, 0.5, dt);
     easing.damp(g.current.rotation, 'x', winner ? 0.5 : 0.38, 0.5, dt);
@@ -320,7 +324,7 @@ const useCardView = () => {
   return { width: v.width, height: v.height, scale, y: v.height * 0.035 };
 };
 
-const World = ({ mode, deckId, card, verdict, exitType, drag, showcaseBox }) => {
+const World = ({ mode, deckId, card, verdict, exitType, drag, showcaseBox, low }) => {
   const view = useCardView();
   const [cards, setCards] = useState([]);
   const [deckUp, setDeckUp] = useState(false);
@@ -371,14 +375,14 @@ const World = ({ mode, deckId, card, verdict, exitType, drag, showcaseBox }) => 
         />
       ))}
 
-      <Sparkles count={45} scale={[12, 8, 8]} size={2.2} speed={0.25} color="#ef4444" opacity={0.55} />
-      <Sparkles count={45} scale={[12, 8, 8]} size={2.2} speed={0.2} color="#a855f7" opacity={0.55} />
+      <Sparkles count={low ? 18 : 45} scale={[12, 8, 8]} size={2.2} speed={REDUCED ? 0 : 0.25} color="#ef4444" opacity={0.55} />
+      <Sparkles count={low ? 18 : 45} scale={[12, 8, 8]} size={2.2} speed={REDUCED ? 0 : 0.2} color="#a855f7" opacity={0.55} />
 
       <mesh rotation-x={-Math.PI / 2} position={[0, FLOOR_Y, 0]}>
         <planeGeometry args={[60, 60]} />
         <MeshReflectorMaterial
           blur={[300, 90]}
-          resolution={512}
+          resolution={low ? 256 : 512}
           mixBlur={1}
           mixStrength={30}
           roughness={1}
@@ -391,7 +395,7 @@ const World = ({ mode, deckId, card, verdict, exitType, drag, showcaseBox }) => 
         />
       </mesh>
 
-      <EffectComposer disableNormalPass multisampling={4}>
+      <EffectComposer disableNormalPass multisampling={low ? 0 : 4}>
         <Bloom mipmapBlur luminanceThreshold={0.95} intensity={1.1} radius={0.75} />
         <Vignette eskil={false} offset={0.25} darkness={0.85} />
       </EffectComposer>
@@ -399,15 +403,27 @@ const World = ({ mode, deckId, card, verdict, exitType, drag, showcaseBox }) => 
   );
 };
 
-const Scene = ({ mode, deckId = 'chuto15', card, verdict, exitType, drag, showcaseBox }) => (
-  <Canvas
-    className="!fixed inset-0"
-    dpr={[1, 2]}
-    gl={{ antialias: true, powerPreference: 'high-performance' }}
-    camera={{ position: [0, 0.4, 8], fov: 38 }}
-  >
-    <World mode={mode} deckId={deckId} card={card} verdict={verdict} exitType={exitType} drag={drag} showcaseBox={showcaseBox} />
-  </Canvas>
-);
+// Calidad adaptable: si el teléfono no logra mantener la fluidez, baja la resolución y los efectos.
+// onLost: avisa si el navegador pierde el contexto gráfico (la app pasa a la versión sin 3D).
+const Scene = ({ mode, deckId = 'chuto15', card, verdict, exitType, drag, showcaseBox, onLost }) => {
+  const [low, setLow] = useState(false);
+  return (
+    <Canvas
+      className="!fixed inset-0"
+      dpr={low ? 1 : [1, 2]}
+      gl={{ antialias: true, powerPreference: 'high-performance' }}
+      camera={{ position: [0, 0.4, 8], fov: 38 }}
+      onCreated={({ gl }) => {
+        gl.domElement.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault();
+          if (onLost) onLost();
+        });
+      }}
+    >
+      <PerformanceMonitor onDecline={() => setLow(true)} />
+      <World mode={mode} deckId={deckId} card={card} verdict={verdict} exitType={exitType} drag={drag} showcaseBox={showcaseBox} low={low} />
+    </Canvas>
+  );
+};
 
 export default Scene;

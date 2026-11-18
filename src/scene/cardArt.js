@@ -47,7 +47,6 @@ export const THEMES = {
   },
 };
 export const themeOf = (deckId) => THEMES[deckId] || THEMES.chuto15;
-export const ACCENTS = THEMES.chuto15;
 
 const rgba = (hex, a) => {
   const n = parseInt(hex.slice(1), 16);
@@ -81,16 +80,21 @@ function spaced(ctx, px) {
 }
 
 // ---------- Reversos (uno por mazo, compartido por todas sus cartas) ----------
-const backCanvases = {};
-
+// El reverso grande se dibuja solo cuando la escena 3D lo necesita (no se guarda aquí:
+// la textura lo conserva y se libera con ella).
 export function getBackCanvas(deckId) {
-  if (!backCanvases[deckId]) backCanvases[deckId] = drawBackArt(deckId);
-  return backCanvases[deckId];
+  return drawBackArt(deckId);
 }
 
-// Imagen del reverso para mostrarla en la interfaz (selección de mazo)
+// Miniatura liviana del reverso para la interfaz (~180×250 px)
+const thumbs = {};
 export function getBackImageURL(deckId) {
-  return getBackCanvas(deckId).toDataURL('image/png');
+  if (!thumbs[deckId]) {
+    const c = drawBackArt(deckId, 0.25);
+    thumbs[deckId] = c.toDataURL('image/webp', 0.85);
+    if (!thumbs[deckId].startsWith('data:image/webp')) thumbs[deckId] = c.toDataURL('image/png');
+  }
+  return thumbs[deckId];
 }
 
 // ---------- Cara del reto ----------
