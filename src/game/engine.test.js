@@ -32,6 +32,14 @@ describe('mazos', () => {
     }
   });
 
+  it('todos los mazos tienen al menos 100 cartas, sin repetir', () => {
+    for (const id of DECK_IDS) {
+      const c = DECKS[id].challenges;
+      expect(c.length, id).toBeGreaterThanOrEqual(100);
+      expect(new Set(c.map((x) => x.text)).size, id).toBe(c.length);
+    }
+  });
+
   it('Sabelotodo tiene más de 1000 preguntas, todas con respuesta y sin repetir', () => {
     const c = DECKS.trivia.challenges;
     expect(c.length).toBeGreaterThanOrEqual(1000);
