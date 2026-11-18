@@ -8,7 +8,9 @@ Es una PWA: se puede instalar desde el navegador.
 
 ```bash
 npm install
-npm run dev
+npm run dev     # servidor de desarrollo
+npm test        # pruebas de las reglas del juego (src/game/engine.test.js)
+npm run build   # versión de producción en dist/
 ```
 
 ## Publicación (Netlify)
@@ -20,8 +22,11 @@ npm run dev
 
 ## Estructura
 
-- `src/game/decks.js`: mazos y retos.
-- `src/game/engine.js`: reglas del juego (estado + reductor, compartido por local y online).
-- `src/net/room.js`: salas online peer-to-peer.
-- `src/scene/`: escena 3D y dibujo de las cartas.
-- `src/App.tsx`: interfaz.
+- `src/game/decks.js`: mazos, cartas y fichas descriptivas.
+- `src/game/trivia/`: banco de preguntas del mazo Sabelotodo (datos estructurados + preguntas sueltas).
+- `src/game/engine.js`: reglas del juego (estado + reductor puro, compartido por local y online).
+- `src/game/session.js`: partida guardada en el teléfono para retomarla.
+- `src/net/room.js`: salas online peer-to-peer (PeerJS), con reconexión.
+- `src/scene/`: escena 3D (Scene.jsx), reversos artísticos (backArt.js) y caras de las cartas (cardArt.js).
+- `src/ui/`: componentes de interfaz y hojas inferiores (puntajes, ficha del mazo, confirmación).
+- `src/App.jsx`: pantallas y flujo de la app.
