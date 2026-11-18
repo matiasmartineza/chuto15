@@ -5,9 +5,9 @@ import { buildTriviaCards } from './trivia/index.js';
 // TOTAL ACTUAL: ~200 Desafíos
 export const CHUTO15_CHALLENGES = [
   // --- HARD (70 - 100 pts) ---
-  { text: "Envía un mensaje de voz gimiendo a tu último contacto de WhatsApp.", intensity: "hard", points: 100 },
+  { text: "Graba un audio gimiendo y deja que todo el grupo lo escuche.", intensity: "hard", points: 100 },
   { text: "Quítate la ropa interior y dásela a {partner} como trofeo.", intensity: "hard", points: 100 },
-  { text: "Bebe un trago que haya sido escupido en el vaso por {partner}.", intensity: "hard", points: 95 },
+  { text: "Bebe un shot sin manos, sostenido entre los labios de {partner}.", intensity: "hard", points: 95 },
   { text: "Besa la parte interna del muslo de {partner} (tan arriba como te permitan).", intensity: "hard", points: 90 },
   { text: "Deja que {partner} te desabroche el pantalón/falda con los dientes.", intensity: "hard", points: 90 },
   { text: "Muestra una nude tuya a {partner} por 2 segundos.", intensity: "hard", points: 85 },
@@ -60,7 +60,7 @@ export const CHUTO15_CHALLENGES = [
   { text: "Deja que {partner} te quite los calcetines con los dientes.", intensity: "hard", points: 80 },
   { text: "Besa a {partner} en el lugar que {partner} elija (mano, mejilla o cuello).", intensity: "hard", points: 85 },
   { text: "Haz un 'calvo' (mostrar el trasero) rápido al grupo.", intensity: "hard", points: 90 },
-  { text: "Permite que {partner} revise tu galería de fotos por 10 segundos.", intensity: "hard", points: 95 },
+  { text: "Muéstrale a {partner} la foto tuya más atrevida que tengas en el teléfono.", intensity: "hard", points: 95 },
   { text: "Siéntate sobre las manos de {partner} durante un turno.", intensity: "hard", points: 75 },
   { text: "Lame la mejilla de {partner} de abajo hacia arriba.", intensity: "hard", points: 70 },
 
@@ -224,7 +224,39 @@ export const KAWAII_CHALLENGES = [
   { text: "Haz un corazón con las manos para {partner}.", intensity: "soft", points: 10 },
   { text: "Bebe si tienes una mascota.", intensity: "soft", points: 10 },
   { text: "Bebe si llevas algo rosado puesto.", intensity: "soft", points: 10 },
+  // --- ampliación ---
+  { text: "Haz una reverencia de idol y preséntate como si debutaras en un grupo de K-pop.", intensity: "soft", points: 20 },
+  { text: "Di el nombre de tu primer peluche o mascota con voz de anime.", intensity: "soft", points: 15 },
+  { text: "Maúlla la melodía de una canción hasta que alguien la adivine.", intensity: "soft", points: 25 },
+  { text: "Haz orejitas de gato con las manos durante tu próxima ronda.", intensity: "soft", points: 15 },
+  { text: "Inventa un nombre kawaii para cada persona del grupo.", intensity: "soft", points: 25 },
+  { text: "Hazle a {partner} un cumplido que termine en \"-chan\" o \"-kun\".", intensity: "soft", points: 15 },
+  { text: "Imita a un gatito que se asusta con un pepino.", intensity: "soft", points: 20 },
+  { text: "Dibuja en el aire un corazón con la nariz.", intensity: "soft", points: 10 },
+  { text: "Di tu comida favorita como si fuera el ataque especial de un anime.", intensity: "soft", points: 20 },
+  { text: "Bebe si alguna vez le hablaste a tu mascota como a un bebé.", intensity: "soft", points: 10 },
+  { text: "Haz una pose de chica mágica transformándose.", intensity: "medium", points: 50 },
+  { text: "Acaríciale la cabeza a {partner} diciendo \"buen gatito\" durante 10 segundos.", intensity: "medium", points: 50 },
+  { text: "Narra lo que hace {partner} como si fuera un documental de gatitos.", intensity: "medium", points: 55 },
+  { text: "Haz una carita kawaii distinta cada vez que alguien te mire, hasta tu próximo turno.", intensity: "medium", points: 45 },
+  { text: "Cuéntale a {partner} cuál sería su animal espiritual y por qué.", intensity: "medium", points: 40 },
+  { text: "Canta \"nya nya nya\" con la melodía de una canción famosa.", intensity: "medium", points: 50 },
+  { text: "Dale a {partner} tres besitos en el aire con sonido.", intensity: "medium", points: 40 },
+  { text: "Haz que {partner} y tú formen un corazón juntando las manos para una foto.", intensity: "medium", points: 45 },
+  { text: "Bebe si tienes un peluche en tu cama ahora mismo.", intensity: "medium", points: 40 },
+  { text: "Escribe un haiku de cinco, siete y cinco sílabas sobre {partner}.", intensity: "medium", points: 65 },
+  { text: "Deja que {partner} te ponga un apodo de mascota hasta el final de la partida.", intensity: "hard", points: 75 },
+  { text: "Dale a {partner} un abrazo por la espalda y ronronea durante 10 segundos.", intensity: "hard", points: 80 },
+  { text: "Pídele a {partner} que sea tu \"senpai\" y que te dé un consejo de vida.", intensity: "hard", points: 70 },
+  { text: "Haz una escena de anime dramática despidiéndote de {partner} como si se fuera para siempre.", intensity: "hard", points: 85 },
+  { text: "Apoya tu cabeza en el hombro de {partner} hasta tu próximo turno.", intensity: "hard", points: 75 },
+  { text: "Sostén la mano de {partner} y dile algo tierno mirándole a los ojos.", intensity: "hard", points: 80 },
+  { text: "Dale de comer a {partner} un dulce con palitos o con la mano.", intensity: "hard", points: 70 },
+  { text: "Haz un baile tierno coordinado con {partner} durante 15 segundos.", intensity: "hard", points: 75 },
+  { text: "Graba una nota de voz de buenas noches kawaii para {partner}.", intensity: "hard", points: 90 },
+  { text: "Hazle a {partner} una declaración de amistad eterna con música de fondo dramática.", intensity: "hard", points: 85 },
 ];
+
 
 // --- MAZO SIN CENSURA (extremo, +18) ---
 // Todo es entre adultos que aceptaron jugar: el partner siempre puede oponerse
@@ -702,7 +734,7 @@ export const DECKS = {
     name: 'Kawaii Neko',
     kana: 'かわいいねこ',
     kanji: '可愛い猫',
-    subtitle: 'Tierno · en desarrollo',
+    subtitle: 'Tierno y juguetón',
     challenges: KAWAII_CHALLENGES,
   },
 };
