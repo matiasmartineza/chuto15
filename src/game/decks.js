@@ -1,3 +1,5 @@
+import { buildTriviaCards } from './trivia/index.js';
+
 // --- LISTA DE DESAFÍOS (CON PLACEHOLDER {partner}) ---
 // Soft: 10-30 | Medium: 40-70 | Hard: 70-100
 // TOTAL ACTUAL: ~200 Desafíos
@@ -427,6 +429,9 @@ export const TRIVIA_CHALLENGES = [
   { text: "¿Cuál es la capital de Nueva Zelanda?", answer: "Wellington", intensity: "hard", points: 85 },
 ];
 
+// Las preguntas originales + el banco grande de trivia (src/game/trivia)
+export const TRIVIA_ALL = buildTriviaCards(TRIVIA_CHALLENGES);
+
 // --- MAZO CARRETE ONLINE (para jugar por videollamada, p. ej. Discord) ---
 export const ONLINE_CHALLENGES = [
   // SOFT
@@ -541,7 +546,7 @@ export const DECKS = {
     },
     name: 'Sabelotodo',
     subtitle: 'Trivia de cultura general',
-    challenges: TRIVIA_CHALLENGES,
+    challenges: TRIVIA_ALL,
     kind: 'trivia',
     levelLabels: { soft: 'Fácil', medium: 'Media', hard: 'Difícil' },
   },

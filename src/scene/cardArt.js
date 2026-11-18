@@ -381,9 +381,30 @@ export function makeVerdictCanvas(v) {
     fitText(ctx, `${v.winnerName} llegó a la meta`, W - 160, 700, 26);
     ctx.fillText(`${v.winnerName} llegó a la meta`, W / 2, H - 88);
   } else if (v.note) {
-    ctx.fillStyle = 'rgba(255,255,255,.4)';
-    ctx.font = `500 20px ${FONT}`;
-    ctx.fillText(v.note, W / 2, H - 88);
+    // la nota (p. ej. la respuesta de la trivia) se achica y, si no cabe, va en dos líneas
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    const maxW = W - 150;
+    ctx.font = `500 22px ${FONT}`;
+    if (ctx.measureText(v.note).width <= maxW) {
+      ctx.fillText(v.note, W / 2, H - 88);
+    } else {
+      const words = v.note.split(' ');
+      let best = 1;
+      let bestDiff = Infinity;
+      for (let i = 1; i < words.length; i++) {
+        const d = Math.abs(ctx.measureText(words.slice(0, i).join(' ')).width - ctx.measureText(words.slice(i).join(' ')).width);
+        if (d < bestDiff) { bestDiff = d; best = i; }
+      }
+      const l1 = words.slice(0, best).join(' ');
+      const l2 = words.slice(best).join(' ');
+      let size = 22;
+      while (size > 15 && Math.max(ctx.measureText(l1).width, ctx.measureText(l2).width) > maxW) {
+        size -= 1;
+        ctx.font = `500 ${size}px ${FONT}`;
+      }
+      ctx.fillText(l1, W / 2, H - 104);
+      ctx.fillText(l2, W / 2, H - 76);
+    }
   }
 
   return c;
